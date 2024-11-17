@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://cm3535sb445mo"
+path="res://.godot/imported/ray.glsl-c14b1acc3a90581b920e6b7a4e114723.res"
+
+[deps]
+
+source_file="res://ray.glsl"
+dest_files=["res://.godot/imported/ray.glsl-c14b1acc3a90581b920e6b7a4e114723.res"]
+
+[params]
+

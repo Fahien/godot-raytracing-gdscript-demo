@@ -1,0 +1,21 @@
+[gd_scene load_steps=3 format=3 uid="uid://d3qu3u7vqm54p"]
+
+[ext_resource type="Script" uid="uid://dgfk5yaaie6t1" path="res://raytracing.gd" id="1_qlnjk"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_oet81"]
+
+[node name="Scene" type="Node3D"]
+script = ExtResource("1_qlnjk")
+
+[node name="Box" type="Node3D" parent="."]
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Box"]
+mesh = SubResource("BoxMesh_oet81")
+skeleton = NodePath("../..")
+
+[node name="TextureRect" type="TextureRect" parent="."]
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.06, 0, 1.805)
