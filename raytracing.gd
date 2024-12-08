@@ -12,20 +12,40 @@ var vertex_buffer: RID
 var vertex_array: RID
 var index_buffer: RID
 var index_array: RID
-var transform_buffer: RID
 var blas: RID
 var tlas: RID
 var uniform_set: RID
 
+func _cleanup():
+	if rd == null:
+		return
+
+	rd.free_rid(uniform_set)
+	rd.free_rid(tlas)
+	rd.free_rid(blas)
+	rd.free_rid(index_array)
+	rd.free_rid(index_buffer)
+	rd.free_rid(vertex_array)
+	rd.free_rid(vertex_buffer)
+	rd.free_rid(raytracing_pipeline)
+	rd.free_rid(shader)
+	rd.free_rid(raytracing_texture)
+	rd.free()
+	rd = null
+
+func _notification(what: int):
+	if what == NOTIFICATION_PREDELETE:
+		_cleanup()
+
 func _ready():
-	if rd.raytracing_is_supported():
+	if rd.has_feature(RenderingDevice.SUPPORTS_RAYTRACING):
 		_initialise_screen_texture()
 		_initialize_raytracing_texture()
 		_initialize_scene()
 		_initialize_raytracing_pipeline()
 
 func _process(_delta):
-	if rd.raytracing_is_supported():
+	if rd.has_feature(RenderingDevice.SUPPORTS_RAYTRACING):
 		_render()
 
 func _initialize_raytracing_texture():
@@ -82,7 +102,7 @@ func _initialize_scene():
 			-0.5,  0.5, 1.0,
 		])
 	var point_bytes := points.to_byte_array()
-	vertex_buffer = rd.vertex_buffer_create(point_bytes.size(), point_bytes, true)
+	vertex_buffer = rd.vertex_buffer_create(point_bytes.size(), point_bytes, false, true)
 	var vertex_desc := RDVertexAttribute.new()
 	vertex_desc.format = RenderingDevice.DATA_FORMAT_R32G32B32_SFLOAT
 	vertex_desc.location = 0
@@ -93,33 +113,24 @@ func _initialize_scene():
 	# Index buffer
 	var indices := PackedInt32Array([0, 2, 1])
 	var index_bytes := indices.to_byte_array()
-	index_buffer = rd.index_buffer_create(indices.size(), RenderingDevice.INDEX_BUFFER_FORMAT_UINT32, index_bytes)
+	index_buffer = rd.index_buffer_create(indices.size(), RenderingDevice.INDEX_BUFFER_FORMAT_UINT32, index_bytes, false, true)
 	index_array = rd.index_array_create(index_buffer, 0, indices.size())
 
-	# Transform buffer
-	var transform_matrix := PackedFloat32Array([
-		1.0, 0.0, 0.0, 0.0,
-		0.0, 1.0, 0.0, 0.0,
-		0.0, 0.0, 1.0, 0.0,
-	])
-	var transform_bytes := transform_matrix.to_byte_array()
-	transform_buffer = rd.storage_buffer_create(transform_bytes.size(), transform_bytes, RenderingDevice.STORAGE_BUFFER_USAGE_SHADER_DEVICE_ADDRESS | RenderingDevice.STORAGE_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY)
-
 	# Create a BLAS for a mesh
-	blas = rd.blas_create(vertex_array, index_array, transform_buffer)
+	blas = rd.blas_create(vertex_array, index_array)
 	# Create TLAS with BLASs.
-	tlas = rd.tlas_create([blas])
+	tlas = rd.tlas_create([blas], [Transform3D()])
 
 func _render():
-	var raylist := rd.raytracing_list_begin()
-	rd.raytracing_list_build_acceleration_structure(raylist, blas)
-	rd.raytracing_list_build_acceleration_structure(raylist, tlas)
+	rd.acceleration_structure_build(blas)
+	rd.acceleration_structure_build(tlas)
+
+	var raylist = rd.raytracing_list_begin()
 	rd.raytracing_list_bind_raytracing_pipeline(raylist, raytracing_pipeline)
 	rd.raytracing_list_bind_uniform_set(raylist, uniform_set, 0)
 	var width = get_viewport().size.x
 	var height = get_viewport().size.y
 	rd.raytracing_list_trace_rays(raylist, width, height)
-	rd.raytracing_list_add_barrier(raylist)
 	rd.raytracing_list_end()
 	
 	var byte_data := rd.texture_get_data(raytracing_texture, 0)
