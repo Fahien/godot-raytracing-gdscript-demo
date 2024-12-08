@@ -17,6 +17,28 @@ var blas: RID
 var tlas: RID
 var uniform_set: RID
 
+func _cleanup():
+	if rd == null:
+		return
+
+	rd.free_rid(uniform_set)
+	rd.free_rid(tlas)
+	rd.free_rid(blas)
+	rd.free_rid(transform_buffer)
+	rd.free_rid(index_array)
+	rd.free_rid(index_buffer)
+	rd.free_rid(vertex_array)
+	rd.free_rid(vertex_buffer)
+	rd.free_rid(raytracing_pipeline)
+	rd.free_rid(shader)
+	rd.free_rid(raytracing_texture)
+	rd.free()
+	rd = null
+
+func _notification(what: int):
+	if what == NOTIFICATION_PREDELETE:
+		_cleanup()
+
 func _ready():
 	if rd.raytracing_is_supported():
 		_initialise_screen_texture()
@@ -111,9 +133,13 @@ func _initialize_scene():
 	tlas = rd.tlas_create([blas])
 
 func _render():
-	var raylist := rd.raytracing_list_begin()
+	var raylist = rd.raytracing_list_begin()
 	rd.raytracing_list_build_acceleration_structure(raylist, blas)
+	rd.raytracing_list_end()
+	raylist = rd.raytracing_list_begin()
 	rd.raytracing_list_build_acceleration_structure(raylist, tlas)
+	rd.raytracing_list_end()
+	raylist = rd.raytracing_list_begin()
 	rd.raytracing_list_bind_raytracing_pipeline(raylist, raytracing_pipeline)
 	rd.raytracing_list_bind_uniform_set(raylist, uniform_set, 0)
 	var width = get_viewport().size.x
