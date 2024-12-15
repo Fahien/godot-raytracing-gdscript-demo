@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://b56oifjpuljxm"
+path="res://.godot/imported/raytraced_ambient_occlusion.glsl-c969ef39e199ee396a6c6842fafa9210.res"
+
+[deps]
+
+source_file="res://raytraced_ambient_occlusion.glsl"
+dest_files=["res://.godot/imported/raytraced_ambient_occlusion.glsl-c969ef39e199ee396a6c6842fafa9210.res"]
+
+[params]
+
