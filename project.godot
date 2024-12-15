@@ -14,3 +14,7 @@ config/name="Raytracing GDScript demo"
 run/main_scene="res://simple.tscn"
 config/features=PackedStringArray("4.4")
 config/icon="res://icon.svg"
+
+[rendering]
+
+renderer/rendering_method="raytracing"

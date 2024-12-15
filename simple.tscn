@@ -1,15 +1,44 @@
-[gd_scene load_steps=3 format=3 uid="uid://d3qu3u7vqm54p"]
+[gd_scene load_steps=7 format=3 uid="uid://d3qu3u7vqm54p"]
 
-[ext_resource type="Script" uid="uid://dgfk5yaaie6t1" path="res://raytracing.gd" id="1_qlnjk"]
+[ext_resource type="Script" uid="uid://bhe2v6xrltl3f" path="res://raytraced_ambient_occlusion.gd" id="1_qlnjk"]
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_qlnjk"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_oet81"]
 
-[node name="Scene" type="Node3D"]
+[sub_resource type="Environment" id="Environment_oet81"]
+
+[sub_resource type="CompositorEffect" id="CompositorEffect_5rh3t"]
+resource_local_to_scene = false
+resource_name = ""
+enabled = true
+effect_callback_type = 4
+needs_motion_vectors = false
+needs_normal_roughness = false
 script = ExtResource("1_qlnjk")
+metadata/_custom_type_script = ExtResource("1_qlnjk")
+
+[sub_resource type="Compositor" id="Compositor_oet81"]
+compositor_effects = Array[CompositorEffect]([SubResource("CompositorEffect_5rh3t")])
+
+[node name="Scene" type="Node3D"]
+
+[node name="Light" type="Node3D" parent="."]
+transform = Transform3D(0.454167, -0.300606, 0.838671, 0.551937, 0.833886, 0, -0.699355, 0.462893, 0.544639, -2.287, 1.11, 3.963)
+
+[node name="OmniLight3D" type="OmniLight3D" parent="Light"]
+
+[node name="Terrain" type="Node3D" parent="."]
+transform = Transform3D(15.1283, 5.20909, 0, -2.83707, 8.23946, -13.4187, -4.36871, 12.6877, 8.71422, 0, 0, 0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Terrain"]
+mesh = SubResource("PlaneMesh_qlnjk")
 
 [node name="Box" type="Node3D" parent="."]
+transform = Transform3D(0.743032, 0.0129697, 0.669131, -0.0174524, 0.999848, 0, -0.669029, -0.0116779, 0.743145, 0, 0, 3.55)
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Box"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 mesh = SubResource("BoxMesh_oet81")
 skeleton = NodePath("../..")
 
@@ -18,4 +47,8 @@ offset_right = 40.0
 offset_bottom = 40.0
 
 [node name="Camera3D" type="Camera3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.06, 0, 1.805)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.525, 0.83, 2.415)
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_oet81")
+compositor = SubResource("Compositor_oet81")

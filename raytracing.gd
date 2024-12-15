@@ -133,19 +133,15 @@ func _initialize_scene():
 	tlas = rd.tlas_create([blas])
 
 func _render():
+	rd.acceleration_structure_build(blas)
+	rd.acceleration_structure_build(tlas)
+
 	var raylist = rd.raytracing_list_begin()
-	rd.raytracing_list_build_acceleration_structure(raylist, blas)
-	rd.raytracing_list_end()
-	raylist = rd.raytracing_list_begin()
-	rd.raytracing_list_build_acceleration_structure(raylist, tlas)
-	rd.raytracing_list_end()
-	raylist = rd.raytracing_list_begin()
 	rd.raytracing_list_bind_raytracing_pipeline(raylist, raytracing_pipeline)
 	rd.raytracing_list_bind_uniform_set(raylist, uniform_set, 0)
 	var width = get_viewport().size.x
 	var height = get_viewport().size.y
 	rd.raytracing_list_trace_rays(raylist, width, height)
-	rd.raytracing_list_add_barrier(raylist)
 	rd.raytracing_list_end()
 	
 	var byte_data := rd.texture_get_data(raytracing_texture, 0)
