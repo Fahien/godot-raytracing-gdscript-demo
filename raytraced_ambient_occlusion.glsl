@@ -2,6 +2,9 @@
 
 #version 460
 
+#define MAX_VIEWS 2
+#include "scene_data_inc.glsl"
+
 #pragma shader_stage(raygen)
 #extension GL_EXT_ray_tracing : enable
 
@@ -13,14 +16,18 @@ layout(set = 0, binding = 0, rgba16f) uniform image2D image;
 // Bounding Volume Hierarchy: top-level acceleration structure.
 layout(set = 0, binding = 1) uniform accelerationStructureEXT tlas;
 
+layout(set = 0, binding = 2, std140) uniform SceneDataBlock {
+	SceneData data;
+} scene_data_block;
+
 void main() {
 	const vec2 pixel_center = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
 	const vec2 in_uv = pixel_center / vec2(gl_LaunchSizeEXT.xy);
 	vec2 d = in_uv * 2.0 - 1.0;
 
-	vec4 target = vec4(d.x, d.y, 1.0, 1.0);
-	vec4 origin = vec4(0.0, 0.0, 0.0, 1.0);
-	vec4 direction = vec4(normalize(target.xyz), 0);
+	vec4 target = scene_data_block.data.inv_projection_matrix * vec4(d.x, d.y, 1.0, 1.0);
+	vec4 origin = scene_data_block.data.inv_view_matrix * vec4(0.0, 0.0, 0.0, 1.0);
+	vec4 direction = scene_data_block.data.inv_view_matrix * vec4(normalize(target.xyz), 0);
 
 	float t_min = 0.001;
 	float t_max = 10000.0;
