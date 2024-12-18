@@ -55,6 +55,8 @@ func _render_callback(_p_effect_callback_type: int, p_render_data: RenderData):
 	if render_scene_data == null:
 		return
 
+	var uniform_buffer = render_scene_data.get_uniform_buffer()
+
 	var transform_size = 12 * 4;
 	var transform_count = render_scene_data.get_transform_count()
 	var transform_buffer = render_scene_data.get_transform_buffer()
@@ -62,22 +64,18 @@ func _render_callback(_p_effect_callback_type: int, p_render_data: RenderData):
 
 	_free_acceleration_structures()
 	
-	var instance_count = p_render_data.get_instance_count()
-	var blas_index = transform_count - 1
-	for i in range(instance_count):
-		var vertex_arrays = p_render_data.get_vertex_arrays(i)
-		var index_arrays = p_render_data.get_index_arrays(i)
-		var vertex_count = vertex_arrays.size()
-		var index_count = index_arrays.size()
-		assert(vertex_count == index_count)
-		for j in range(vertex_count):
-			var transform_offset = blas_index * transform_size
-			assert(blas_index < transform_count)
-			blas_index = blas_index - 1
-			var blas = rd.blas_create(vertex_arrays[j], index_arrays[j], transform_buffer, transform_offset)
-			assert(blas != RID())
-			rd.acceleration_structure_build(blas)
-			blases.push_back(blas)
+	var vertex_arrays = render_scene_data.get_vertex_arrays()
+	var index_arrays = render_scene_data.get_index_arrays()
+	var vertex_count = vertex_arrays.size()
+	var index_count = index_arrays.size()
+	assert(vertex_count == index_count)
+	assert(vertex_count == transform_count)
+	for i in range(transform_count):
+		var transform_offset = i * transform_size
+		var blas = rd.blas_create(vertex_arrays[i], index_arrays[i], transform_buffer, transform_offset)
+		assert(blas != RID())
+		rd.acceleration_structure_build(blas)
+		blases.push_back(blas)
 
 	tlas = rd.tlas_create(blases)
 	assert(tlas != RID())
@@ -97,7 +95,12 @@ func _render_callback(_p_effect_callback_type: int, p_render_data: RenderData):
 		as_uniform.binding = 1
 		as_uniform.add_id(tlas)
 
-		var uniform_set = rd.uniform_set_create([image_uniform, as_uniform], shader, 0)
+		var scene_uniform := RDUniform.new()
+		scene_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_UNIFORM_BUFFER
+		scene_uniform.binding = 2
+		scene_uniform.add_id(uniform_buffer)
+
+		var uniform_set = rd.uniform_set_create([image_uniform, as_uniform, scene_uniform], shader, 0)
 
 		var raylist = rd.raytracing_list_begin()
 		rd.raytracing_list_bind_raytracing_pipeline(raylist, pipeline)
