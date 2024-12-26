@@ -54,9 +54,64 @@ void main() {
 
 #pragma shader_stage(closest_hit)
 #extension GL_EXT_ray_tracing : enable
+#extension GL_EXT_shader_explicit_arithmetic_types : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : enable
+#extension GL_EXT_buffer_reference2 : require
+
+hitAttributeEXT vec3 attribs;
+
+layout(buffer_reference, buffer_reference_align = 4) buffer PointerToVertex { float vertex[]; };
+layout(buffer_reference, buffer_reference_align = 2) buffer PointerToIndex { uint16_t index[]; };
+
+layout(set = 0, binding = 3, std430) readonly buffer VertexAddressesBlock {
+	PointerToVertex data[];
+} vertex_addresses;
+
+layout(set = 0, binding = 4, std430) readonly buffer IndexAddressesBlock {
+	PointerToIndex data[];
+} index_addresses;
 
 layout(location = 0) rayPayloadInEXT vec3 payload;
 
 void main() {
-	payload = vec3(0.0, 1.0, 0.0);
+	vec3 barycentrics = vec3(1.0 - attribs.x - attribs.y, attribs.x, attribs.y);
+	payload = barycentrics;
+
+
+	PointerToIndex p_index = index_addresses.data[gl_InstanceID];
+	uint64_t u_p_index = uint64_t(p_index);
+	PointerToVertex p_vertex = vertex_addresses.data[gl_InstanceID];
+
+	uint idx0 = 0;
+	uint idx1 = 1;
+	uint idx2 = 2;
+	uint vertex_offset = 0;
+
+	if (u_p_index == 0) {
+		vertex_offset = gl_PrimitiveID * 3;
+	} else {
+		uint index_offset = gl_PrimitiveID * 3;
+		idx0 = p_index.index[index_offset + 0];
+		idx1 = p_index.index[index_offset + 1];
+		idx2 = p_index.index[index_offset + 2];
+	}
+
+	vec3 pos0 = vec3(
+		p_vertex.vertex[vertex_offset + idx0 * 3 + 0],
+		p_vertex.vertex[vertex_offset + idx0 * 3 + 1],
+		p_vertex.vertex[vertex_offset + idx0 * 3 + 2]
+	);
+	vec3 pos1 = vec3(
+		p_vertex.vertex[vertex_offset + idx1 * 3 + 0],
+		p_vertex.vertex[vertex_offset + idx1 * 3 + 1],
+		p_vertex.vertex[vertex_offset + idx1 * 3 + 2]
+	);
+	vec3 pos2 = vec3(
+		p_vertex.vertex[vertex_offset + idx2 * 3 + 0],
+		p_vertex.vertex[vertex_offset + idx2 * 3 + 1],
+		p_vertex.vertex[vertex_offset + idx2 * 3 + 2]
+	);
+	vec3 pos = pos0 * barycentrics.x + pos1 * barycentrics.y + pos2 * barycentrics.z;
+	vec3 normal = normalize(cross(pos1 - pos0, pos2 - pos0));
+	payload = (normal + 1.0) / 2.0;
 }
