@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3 uid="uid://dwp2cfi1256aa"]
+
+[ext_resource type="ArrayMesh" uid="uid://mica4pla1kq0" path="res://cornell-box/CornellBox-Sphere.obj" id="1_ytycx"]
+
+[node name="Orig" type="Node3D"]
+
+[node name="CornellBox-sphere" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.203913, 0, 0.224638)
+mesh = ExtResource("1_ytycx")
