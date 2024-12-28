@@ -1,10 +1,7 @@
-[gd_scene load_steps=7 format=3 uid="uid://d3qu3u7vqm54p"]
+[gd_scene load_steps=6 format=3 uid="uid://d3qu3u7vqm54p"]
 
 [ext_resource type="Script" uid="uid://bhe2v6xrltl3f" path="res://raytraced_ambient_occlusion.gd" id="1_qlnjk"]
-
-[sub_resource type="PlaneMesh" id="PlaneMesh_qlnjk"]
-
-[sub_resource type="BoxMesh" id="BoxMesh_oet81"]
+[ext_resource type="PackedScene" uid="uid://bh845rdcfys2q" path="res://sponza/sponza.gltf" id="2_oet81"]
 
 [sub_resource type="Environment" id="Environment_oet81"]
 
@@ -23,28 +20,13 @@ compositor_effects = Array[CompositorEffect]([SubResource("CompositorEffect_oet8
 
 [node name="Scene" type="Node3D"]
 
-[node name="Light" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 5, 0)
-
-[node name="OmniLight3D" type="OmniLight3D" parent="Light"]
-
-[node name="Terrain" type="Node3D" parent="."]
-transform = Transform3D(16, 0, 0, 0, 16, 0, 0, 0, 16, 0, 0, 0)
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Terrain"]
-mesh = SubResource("PlaneMesh_qlnjk")
-
-[node name="Box" type="Node3D" parent="."]
-transform = Transform3D(0.743032, 0.0129697, 0.669131, -0.0174524, 0.999848, 0, -0.669029, -0.0116779, 0.743145, 0, 0, 0)
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Box"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
-mesh = SubResource("BoxMesh_oet81")
-skeleton = NodePath("../..")
-
 [node name="Camera3D" type="Camera3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -137.668, 15.4107, 0)
+transform = Transform3D(0.0174524, 0, -0.999848, 0, 1, 0, 0.999848, 0, 0.0174524, -0.755, 1.195, 5.005)
+visible = false
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_oet81")
 compositor = SubResource("Compositor_oet81")
+
+[node name="sponza" parent="." instance=ExtResource("2_oet81")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.129315, 0, 5.10288)

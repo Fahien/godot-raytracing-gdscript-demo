@@ -71,12 +71,15 @@ layout(set = 0, binding = 4, std430) readonly buffer IndexAddressesBlock {
 	PointerToIndex data[];
 } index_addresses;
 
+layout(set = 0, binding = 5, std430) readonly buffer TransformBlock {
+	mat3x4 data[];
+} transforms;
+
 layout(location = 0) rayPayloadInEXT vec3 payload;
 
 void main() {
 	vec3 barycentrics = vec3(1.0 - attribs.x - attribs.y, attribs.x, attribs.y);
 	payload = barycentrics;
-
 
 	PointerToIndex p_index = index_addresses.data[gl_InstanceID];
 	uint64_t u_p_index = uint64_t(p_index);
@@ -96,22 +99,25 @@ void main() {
 		idx2 = p_index.index[index_offset + 2];
 	}
 
-	vec3 pos0 = vec3(
+	mat3x4 transform = transforms.data[gl_InstanceID];
+
+	vec4 pos0 = transform * vec3(
 		p_vertex.vertex[vertex_offset + idx0 * 3 + 0],
 		p_vertex.vertex[vertex_offset + idx0 * 3 + 1],
 		p_vertex.vertex[vertex_offset + idx0 * 3 + 2]
 	);
-	vec3 pos1 = vec3(
+	vec4 pos1 = transform * vec3(
 		p_vertex.vertex[vertex_offset + idx1 * 3 + 0],
 		p_vertex.vertex[vertex_offset + idx1 * 3 + 1],
 		p_vertex.vertex[vertex_offset + idx1 * 3 + 2]
 	);
-	vec3 pos2 = vec3(
+	vec4 pos2 = transform * vec3(
 		p_vertex.vertex[vertex_offset + idx2 * 3 + 0],
 		p_vertex.vertex[vertex_offset + idx2 * 3 + 1],
 		p_vertex.vertex[vertex_offset + idx2 * 3 + 2]
 	);
-	vec3 pos = pos0 * barycentrics.x + pos1 * barycentrics.y + pos2 * barycentrics.z;
-	vec3 normal = normalize(cross(pos1 - pos0, pos2 - pos0));
+	vec4 pos = pos0 * barycentrics.x + pos1 * barycentrics.y + pos2 * barycentrics.z;
+
+	vec3 normal = normalize(cross(pos1.xyz - pos0.xyz, pos2.xyz - pos0.xyz));
 	payload = (normal + 1.0) / 2.0;
 }
