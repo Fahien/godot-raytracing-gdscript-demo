@@ -7,6 +7,8 @@
 
 #pragma shader_stage(raygen)
 #extension GL_EXT_ray_tracing : enable
+#extension GL_EXT_samplerless_texture_functions : enable
+
 
 layout(location = 0) rayPayloadEXT vec3 payload;
 
@@ -20,9 +22,15 @@ layout(set = 0, binding = 2, std140) uniform SceneDataBlock {
 	SceneData data;
 } scene_data_block;
 
+layout(set = 0, binding = 6) uniform texture2D blue_noise_texture;
+
 void main() {
 	const vec2 pixel_center = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
 	const vec2 in_uv = pixel_center / vec2(gl_LaunchSizeEXT.xy);
+
+	ivec2 pix = ivec2(int(in_uv.x * 1024.0), int(in_uv.y * 1024.0));
+	const vec3 blue_noise = texelFetch(blue_noise_texture, pix, 0).xyz;
+
 	vec2 d = in_uv * 2.0 - 1.0;
 
 	vec4 target = scene_data_block.data.inv_projection_matrix * vec4(d.x, d.y, 1.0, 1.0);
@@ -77,6 +85,10 @@ layout(set = 0, binding = 5, std430) readonly buffer TransformBlock {
 
 layout(location = 0) rayPayloadInEXT vec3 payload;
 
+vec3 get_random_dir_on_hemisphere(vec3 normal) {
+	return vec3(1.0);
+}
+
 void main() {
 	vec3 barycentrics = vec3(1.0 - attribs.x - attribs.y, attribs.x, attribs.y);
 	payload = barycentrics;
@@ -119,5 +131,12 @@ void main() {
 	vec4 pos = pos0 * barycentrics.x + pos1 * barycentrics.y + pos2 * barycentrics.z;
 
 	vec3 normal = normalize(cross(pos1.xyz - pos0.xyz, pos2.xyz - pos0.xyz));
+
+	// shadow ray origin
+	float epsilon = 0.001;
+	vec3 shadow_origin = pos.xyz + normal * epsilon;
+
+	vec3 shadow_ray = get_random_dir_on_hemisphere(normal);
+
 	payload = (normal + 1.0) / 2.0;
 }
