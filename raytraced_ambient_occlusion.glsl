@@ -46,10 +46,8 @@ layout(set = 0, binding = 6) uniform texture2D blue_noise_texture;
 const float c_pi = 3.14159265359;
 const float c_golden_ratio_conjugate = 0.61803398875; // also just fract(goldenRatio)
 
-vec4 get_blue_noise_sample(vec2 uv) {
-	const float width = 1024.99;
-	const float height = 1024.99;
-	ivec2 pix = ivec2(int(uv.x * width), int(uv.y * height));
+vec4 get_blue_noise_sample() {
+	ivec2 pix = ivec2(gl_LaunchIDEXT.x % 1024, gl_LaunchIDEXT.y % 1024);
 	return texelFetch(blue_noise_texture, pix, 0);
 }
 
@@ -166,8 +164,9 @@ void main() {
 
 		uint shadow_sample_count = 8;
 
+		const vec4 blue_noise_sample = get_blue_noise_sample();
+
 		for (uint shadow_sample_index = 0; shadow_sample_index < shadow_sample_count; shadow_sample_index++) {
-			const vec4 blue_noise_sample = get_blue_noise_sample(in_uv);
 			const float blue_noise_rand1 = get_blue_noise_rand(blue_noise_sample.x, blue_noise_sample_count);
 			const float blue_noise_rand2 = get_blue_noise_rand(blue_noise_sample.y, blue_noise_sample_count);
 			blue_noise_sample_count += 1;
