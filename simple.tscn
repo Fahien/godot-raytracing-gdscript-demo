@@ -37,15 +37,14 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.97, 0, 0)
 visible = false
 
 [node name="duck" parent="." instance=ExtResource("3_5rh3t")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -2.475)
 
 [node name="flight-helmet" parent="." instance=ExtResource("4_u4emj")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.90308, 0.372171, -0.906434)
-visible = false
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.648, 0.372, -0.906)
 
 [node name="orientation" parent="." instance=ExtResource("5_uti7t")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04774, 1.11133, -0.066998)
 visible = false
 
 [node name="suzanne" parent="." instance=ExtResource("6_v1v2w")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.298, 0.883, -2.037)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.053, 0.883, -2.037)
