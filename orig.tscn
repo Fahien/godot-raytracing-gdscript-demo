@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3 uid="uid://dwp2cfi1256aa"]
 
-[ext_resource type="ArrayMesh" uid="uid://mica4pla1kq0" path="res://cornell-box/CornellBox-Sphere.obj" id="1_ytycx"]
+[ext_resource type="ArrayMesh" uid="uid://mica4pla1kq0" path="res://assets/cornell-box/CornellBox-Sphere.obj" id="1_ytycx"]
 
 [node name="Orig" type="Node3D"]
 

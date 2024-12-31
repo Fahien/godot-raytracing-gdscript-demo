@@ -1,7 +1,7 @@
 [gd_scene load_steps=6 format=3 uid="uid://d3qu3u7vqm54p"]
 
 [ext_resource type="Script" uid="uid://bhe2v6xrltl3f" path="res://raytraced_ambient_occlusion.gd" id="1_qlnjk"]
-[ext_resource type="PackedScene" uid="uid://bh845rdcfys2q" path="res://sponza/sponza.gltf" id="2_oet81"]
+[ext_resource type="PackedScene" uid="uid://bh845rdcfys2q" path="res://assets/sponza/sponza.gltf" id="2_oet81"]
 
 [sub_resource type="Environment" id="Environment_oet81"]
 
@@ -29,4 +29,3 @@ environment = SubResource("Environment_oet81")
 compositor = SubResource("Compositor_oet81")
 
 [node name="sponza" parent="." instance=ExtResource("2_oet81")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.129315, 0, 5.10288)
