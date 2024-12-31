@@ -1,7 +1,11 @@
-[gd_scene load_steps=6 format=3 uid="uid://d3qu3u7vqm54p"]
+[gd_scene load_steps=10 format=3 uid="uid://d3qu3u7vqm54p"]
 
 [ext_resource type="Script" uid="uid://bhe2v6xrltl3f" path="res://raytraced_ambient_occlusion.gd" id="1_qlnjk"]
 [ext_resource type="PackedScene" uid="uid://bh845rdcfys2q" path="res://assets/sponza/sponza.gltf" id="2_oet81"]
+[ext_resource type="PackedScene" uid="uid://3qx4t086sg4n" path="res://assets/duck/duck.gltf" id="3_5rh3t"]
+[ext_resource type="PackedScene" uid="uid://wrik01q3abjs" path="res://assets/flight-helmet/flight-helmet.gltf" id="4_u4emj"]
+[ext_resource type="PackedScene" uid="uid://du6mfprki0lji" path="res://assets/orientation/orientation.gltf" id="5_uti7t"]
+[ext_resource type="PackedScene" uid="uid://tgynok8a80w" path="res://assets/suzanne/suzanne.gltf" id="6_v1v2w"]
 
 [sub_resource type="Environment" id="Environment_oet81"]
 
@@ -29,3 +33,19 @@ environment = SubResource("Environment_oet81")
 compositor = SubResource("Compositor_oet81")
 
 [node name="sponza" parent="." instance=ExtResource("2_oet81")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.97, 0, 0)
+visible = false
+
+[node name="duck" parent="." instance=ExtResource("3_5rh3t")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+
+[node name="flight-helmet" parent="." instance=ExtResource("4_u4emj")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.90308, 0.372171, -0.906434)
+visible = false
+
+[node name="orientation" parent="." instance=ExtResource("5_uti7t")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.04774, 1.11133, -0.066998)
+visible = false
+
+[node name="suzanne" parent="." instance=ExtResource("6_v1v2w")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.298, 0.883, -2.037)

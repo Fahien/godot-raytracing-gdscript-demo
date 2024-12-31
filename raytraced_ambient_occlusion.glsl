@@ -43,16 +43,66 @@ layout(set = 0, binding = 5, std430) readonly buffer TransformBlock {
 
 layout(set = 0, binding = 6) uniform texture2D blue_noise_texture;
 
-vec3 get_random_dir_on_hemisphere(vec3 normal) {
-	return vec3(1.0);
+const float c_pi = 3.14159265359;
+const float c_golden_ratio_conjugate = 0.61803398875; // also just fract(goldenRatio)
+
+vec4 get_blue_noise_sample(vec2 uv) {
+	const float width = 1024.99;
+	const float height = 1024.99;
+	ivec2 pix = ivec2(int(uv.x * width), int(uv.y * height));
+	return texelFetch(blue_noise_texture, pix, 0);
+}
+
+float get_blue_noise_rand(float blue_noise_sample, uint count) {
+	return fract(
+		blue_noise_sample + c_golden_ratio_conjugate * float(count));
+}
+
+vec3 get_random_dir_on_hemisphere(vec3 normal, float e1, float e2) {
+	float theta = acos(sqrt(e1));
+	float omega = 2.0 * c_pi * e2;
+
+	float sin_theta = sin(theta);
+	float cos_theta = cos(theta);
+	float sin_omega = sin(omega);
+	float cos_omega = cos(omega);
+
+	vec3 s = vec3(cos_omega * sin_theta, sin_omega * sin_theta, cos_theta);
+
+	// Rotate s so that the emisphere is centered around the normal
+	vec3 w = normal;
+	vec3 a = vec3(0.0, 1.0, 0.0);
+	if (abs(dot(w, a)) > 0.9) {
+		a = vec3(1.0, 0.0, 0.0);
+	}
+	vec3 u = normalize(cross(a, w));
+	vec3 v = cross(w, u);
+
+	return s.x * u + s.y * v + s.z * w;
+}
+
+mat3x3 adjoint_transpose(mat4x3 m) {
+	mat3x3 ret;
+	ret[0][0] = m[2][2] * m[1][1] - m[1][2] * m[2][1];
+	ret[0][1] = m[1][2] * m[2][0] - m[1][0] * m[2][2];
+	ret[0][2] = m[1][0] * m[2][1] - m[2][0] * m[1][1];
+
+	ret[1][0] = m[0][2] * m[2][1] - m[2][2] * m[0][1];
+	ret[1][1] = m[2][2] * m[0][0] - m[0][2] * m[2][0];
+	ret[1][2] = m[2][0] * m[0][1] - m[0][0] * m[2][1];
+
+	ret[2][0] = m[1][2] * m[0][1] - m[0][2] * m[1][1];
+	ret[2][1] = m[1][0] * m[0][2] - m[1][2] * m[0][0];
+	ret[2][2] = m[0][0] * m[1][1] - m[1][0] * m[0][1];
+
+	return ret;
 }
 
 void main() {
 	const vec2 pixel_center = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
 	const vec2 in_uv = pixel_center / vec2(gl_LaunchSizeEXT.xy);
 
-	ivec2 pix = ivec2(int(in_uv.x * 1024.0), int(in_uv.y * 1024.0));
-	const vec3 blue_noise = texelFetch(blue_noise_texture, pix, 0).xyz;
+	uint blue_noise_sample_count = 0;
 
 	vec2 d = in_uv * 2.0 - 1.0;
 
@@ -65,7 +115,7 @@ void main() {
 
 	traceRayEXT(tlas, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0, origin.xyz, t_min, direction.xyz, t_max, 0);
 
-	vec3 color = vec3(1.0, 0.0, 0.0);
+	vec3 color = vec3(0.0, 0.0, 0.0);
 
 	if (payload.hit) {
 		vec3 barycentrics = vec3(1.0 - payload.attribs.x - payload.attribs.y, payload.attribs.x, payload.attribs.y);
@@ -88,34 +138,50 @@ void main() {
 			idx2 = p_index.index[index_offset + 2];
 		}
 
-		mat3x4 transform = transforms.data[payload.instance_id];
+		mat4x3 transform = transpose(transforms.data[payload.instance_id]);
 
-		vec4 pos0 = transform * vec3(
+		vec4 pos0 = vec4(
 			p_vertex.vertex[vertex_offset + idx0 * 3 + 0],
 			p_vertex.vertex[vertex_offset + idx0 * 3 + 1],
-			p_vertex.vertex[vertex_offset + idx0 * 3 + 2]
+			p_vertex.vertex[vertex_offset + idx0 * 3 + 2], 1.0
 		);
-		vec4 pos1 = transform * vec3(
+		vec4 pos1 = vec4(
 			p_vertex.vertex[vertex_offset + idx1 * 3 + 0],
 			p_vertex.vertex[vertex_offset + idx1 * 3 + 1],
-			p_vertex.vertex[vertex_offset + idx1 * 3 + 2]
+			p_vertex.vertex[vertex_offset + idx1 * 3 + 2], 1.0
 		);
-		vec4 pos2 = transform * vec3(
+		vec4 pos2 = vec4(
 			p_vertex.vertex[vertex_offset + idx2 * 3 + 0],
 			p_vertex.vertex[vertex_offset + idx2 * 3 + 1],
-			p_vertex.vertex[vertex_offset + idx2 * 3 + 2]
+			p_vertex.vertex[vertex_offset + idx2 * 3 + 2], 1.0
 		);
-		vec4 pos = pos0 * barycentrics.x + pos1 * barycentrics.y + pos2 * barycentrics.z;
+		vec3 pos = transform * (pos0 * barycentrics.x + pos1 * barycentrics.y + pos2 * barycentrics.z);
 
-		vec3 normal = normalize(cross(pos1.xyz - pos0.xyz, pos2.xyz - pos0.xyz));
+		mat3x3 normal_matrix = adjoint_transpose(transform);
+		vec3 normal = normalize(normal_matrix * normalize(cross(pos2.xyz - pos0.xyz, pos1.xyz - pos0.xyz)));
 
 		// shadow ray origin
 		float epsilon = 0.001;
 		vec3 shadow_origin = pos.xyz + normal * epsilon;
 
-		vec3 shadow_ray = get_random_dir_on_hemisphere(normal);
+		uint shadow_sample_count = 8;
 
-		color = (normal + 1.0) / 2.0;
+		for (uint shadow_sample_index = 0; shadow_sample_index < shadow_sample_count; shadow_sample_index++) {
+			const vec4 blue_noise_sample = get_blue_noise_sample(in_uv);
+			const float blue_noise_rand1 = get_blue_noise_rand(blue_noise_sample.x, blue_noise_sample_count);
+			const float blue_noise_rand2 = get_blue_noise_rand(blue_noise_sample.y, blue_noise_sample_count);
+			blue_noise_sample_count += 1;
+			
+			vec3 shadow_direction = get_random_dir_on_hemisphere(normal, blue_noise_rand1, blue_noise_rand2);
+
+			traceRayEXT(tlas, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0, shadow_origin.xyz, t_min, shadow_direction.xyz, t_max, 0);
+
+			if (!payload.hit) {
+				color += vec3(1.0);
+			}
+		}
+
+		color /= float(shadow_sample_count);
 	}
 
 	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(color, 1.0));
