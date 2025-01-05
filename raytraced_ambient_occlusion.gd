@@ -2,15 +2,36 @@
 extends CompositorEffect
 class_name RaytracedAmbientOcclusion
 
+static func _free_rid(dev: RenderingDevice, rid: RID):
+	if rid.is_valid():
+		dev.free_rid(rid)
+
+class CustomStorageBuffer:
+	var buffer := RID()
+	var size_bytes := 0
+
+	func update(rd: RenderingDevice, addresses: PackedInt64Array):
+		assert(addresses != null)
+		assert(addresses.size() != 0)
+		var addresses_bytes = addresses.to_byte_array()
+		var current_size_bytes = addresses_bytes.size()
+		if current_size_bytes > size_bytes:
+			size_bytes = current_size_bytes
+			RaytracedAmbientOcclusion._free_rid(rd, buffer)
+			buffer = rd.storage_buffer_create(current_size_bytes, addresses_bytes)
+			assert(buffer != RID())
+		else:
+			rd.buffer_update(buffer, 0, current_size_bytes, addresses_bytes)
+
+
 var rd: RenderingDevice
 var shader := RID()
 var pipeline := RID()
 var blases := []
 var tlas := RID()
-var vertex_storage := RID()
-var vertex_size_bytes := 0
-var index_storage := RID()
-var index_size_bytes := 0
+var vertex_storage := CustomStorageBuffer.new()
+var index_storage := CustomStorageBuffer.new()
+var normal_storage := CustomStorageBuffer.new()
 var blue_noise := RID()
 var uniform_set := RID()
 
@@ -37,15 +58,13 @@ func _init():
 	blue_noise = rd.texture_create(format, RDTextureView.new(), [blue_noise_image.get_data()])
 	assert(blue_noise != RID())
 
-static func _free_rid(dev: RenderingDevice, rid: RID):
-	if rid.is_valid():
-		dev.free_rid(rid)
 
 func _notification(p_what: int):
 	if p_what == NOTIFICATION_PREDELETE:
 		_free_rid(rd, uniform_set)
-		_free_rid(rd, vertex_storage)
-		_free_rid(rd, index_storage)
+		_free_rid(rd, vertex_storage.buffer)
+		_free_rid(rd, index_storage.buffer)
+		_free_rid(rd, normal_storage.buffer)
 
 		_free_rid(rd, tlas)
 
@@ -64,31 +83,23 @@ func _free_acceleration_structures():
 		_free_rid(rd, blas)
 	blases.clear()
 
-func _update_vertex_storage(addresses: PackedInt64Array):
-	assert(addresses != null)
-	assert(addresses.size() != 0)
-	var addresses_bytes = addresses.to_byte_array()
-	var size_bytes = addresses_bytes.size()
-	if size_bytes > vertex_size_bytes:
-		vertex_size_bytes = size_bytes
-		_free_rid(rd, vertex_storage)
-		vertex_storage = rd.storage_buffer_create(size_bytes, addresses_bytes)
-		assert(vertex_storage != RID())
-	else:
-		rd.buffer_update(vertex_storage, 0, size_bytes, addresses_bytes)
+func _get_vertex_buffer_address(vertex_array: RID, buffer_index: RenderingServer.ArrayType):
+	assert(vertex_array != RID())
+	var buffer = rd.vertex_array_get_buffer(vertex_array, buffer_index)
+	assert(buffer != RID())
+	var buffer_offset = rd.vertex_array_get_buffer_offset(vertex_array, buffer_index)
+	var address = rd.buffer_get_device_address(buffer)
+	return address + buffer_offset
 
-func _update_index_storage(addresses: PackedInt64Array):
-	assert(addresses != null)
-	assert(addresses.size() != 0)
-	var addresses_bytes = addresses.to_byte_array()
-	var size_bytes = addresses_bytes.size()
-	if size_bytes > index_size_bytes:
-		index_size_bytes = size_bytes
-		_free_rid(rd, index_storage)
-		index_storage = rd.storage_buffer_create(size_bytes, addresses_bytes)
-		assert(index_storage != RID())
-	else:
-		rd.buffer_update(index_storage, 0, size_bytes, addresses_bytes)
+func _get_index_buffer_address(index_array: RID):
+	if index_array == RID():
+		return 0
+
+	var buffer = rd.index_array_get_buffer(index_array)
+	assert(buffer != RID())
+	var buffer_offset = rd.index_array_get_buffer_offset(index_array)
+	var address = rd.buffer_get_device_address(buffer)
+	return address + buffer_offset
 
 func _render_callback(_p_effect_callback_type: int, p_render_data: RenderData):
 	if rd == null or pipeline == RID():
@@ -111,6 +122,7 @@ func _render_callback(_p_effect_callback_type: int, p_render_data: RenderData):
 	var render_list_index = 0
 
 	var vertex_addresses = PackedInt64Array()
+	var normal_addresses = PackedInt64Array()
 	var index_addresses = PackedInt64Array()
 
 	var transform_count = render_scene_data.get_transform_count(render_list_index)
@@ -126,21 +138,10 @@ func _render_callback(_p_effect_callback_type: int, p_render_data: RenderData):
 	assert(vertex_count == index_count)
 	assert(vertex_count <= transform_count)
 	for i in range(vertex_count):
-		assert(vertex_arrays[i] != RID())
-		var vertex_buffer = rd.vertex_array_get_buffer(vertex_arrays[i])
-		var vertex_buffer_offset = rd.vertex_array_get_buffer_offset(vertex_arrays[i])
-		assert(vertex_buffer != RID())
-		var vertex_address = rd.buffer_get_device_address(vertex_buffer)
-		vertex_addresses.push_back(vertex_address + vertex_buffer_offset)
+		vertex_addresses.push_back(_get_vertex_buffer_address(vertex_arrays[i], RenderingServer.ARRAY_VERTEX))
+		normal_addresses.push_back(_get_vertex_buffer_address(vertex_arrays[i], RenderingServer.ARRAY_NORMAL))
 
-		if (index_arrays[i] != RID()):
-			var index_buffer = rd.index_array_get_buffer(index_arrays[i])
-			var index_buffer_offset = rd.index_array_get_buffer_offset(index_arrays[i])
-			assert(index_buffer != RID())
-			var index_address = rd.buffer_get_device_address(index_buffer)
-			index_addresses.push_back(index_address + index_buffer_offset)
-		else:
-			index_addresses.push_back(0)
+		index_addresses.push_back(_get_index_buffer_address(index_arrays[i]))
 
 		var transform_offset = i * transform_size
 		var blas = rd.blas_create(vertex_arrays[i], index_arrays[i], transform_buffer, transform_offset)
@@ -152,8 +153,9 @@ func _render_callback(_p_effect_callback_type: int, p_render_data: RenderData):
 	assert(tlas != RID())
 	rd.acceleration_structure_build(tlas)
 
-	_update_vertex_storage(vertex_addresses)
-	_update_index_storage(index_addresses)
+	vertex_storage.update(rd, vertex_addresses)
+	index_storage.update(rd, index_addresses)
+	normal_storage.update(rd, normal_addresses)
 
 	var view_count = render_scene_buffers.get_view_count()
 	for view in range(view_count):
@@ -177,12 +179,12 @@ func _render_callback(_p_effect_callback_type: int, p_render_data: RenderData):
 		var vertex_addresses_uniform := RDUniform.new()
 		vertex_addresses_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
 		vertex_addresses_uniform.binding = 3
-		vertex_addresses_uniform.add_id(vertex_storage)
+		vertex_addresses_uniform.add_id(vertex_storage.buffer)
 
 		var index_addresses_uniform := RDUniform.new()
 		index_addresses_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
 		index_addresses_uniform.binding = 4
-		index_addresses_uniform.add_id(index_storage)
+		index_addresses_uniform.add_id(index_storage.buffer)
 
 		var transform_uniform := RDUniform.new()
 		transform_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
@@ -194,7 +196,16 @@ func _render_callback(_p_effect_callback_type: int, p_render_data: RenderData):
 		blue_noise_uniform.binding = 6
 		blue_noise_uniform.add_id(blue_noise)
 
-		uniform_set = rd.uniform_set_create([image_uniform, as_uniform, scene_uniform, vertex_addresses_uniform, index_addresses_uniform, transform_uniform, blue_noise_uniform], shader, 0)
+		var normal_addresses_uniform := RDUniform.new()
+		normal_addresses_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
+		normal_addresses_uniform.binding = 7
+		normal_addresses_uniform.add_id(normal_storage.buffer)
+
+		uniform_set = rd.uniform_set_create(
+			[image_uniform, as_uniform, scene_uniform, vertex_addresses_uniform, index_addresses_uniform,
+			 transform_uniform, blue_noise_uniform, normal_addresses_uniform],
+			shader,
+			0)
 		assert(uniform_set != RID())
 
 		var raylist = rd.raytracing_list_begin()

@@ -10,6 +10,12 @@
 #extension GL_EXT_shader_explicit_arithmetic_types_int64 : enable
 #extension GL_EXT_buffer_reference2 : require
 
+#if !defined(MODE_RENDER_DEPTH) || defined(TANGENT_USED) || defined(NORMAL_MAP_USED) || defined(LIGHT_ANISOTROPY_USED) ||defined(LIGHT_CLEARCOAT_USED)
+#ifndef NORMAL_USED
+#define NORMAL_USED
+#endif
+#endif
+
 #define MAX_VIEWS 2
 #include "scene_data_inc.glsl"
 #include "ray_payload_inc.glsl"
@@ -26,8 +32,9 @@ layout(set = 0, binding = 2, std140) uniform SceneDataBlock {
 	SceneData data;
 } scene_data_block;
 
-layout(buffer_reference, buffer_reference_align = 4) buffer PointerToVertex { float vertex[]; };
+layout(buffer_reference, buffer_reference_align = 4) buffer PointerToVertex { highp float vertex[]; };
 layout(buffer_reference, buffer_reference_align = 2) buffer PointerToIndex { uint16_t index[]; };
+layout(buffer_reference, buffer_reference_align = 2) buffer PointerToNormal { u16vec4 normal[]; };
 
 layout(set = 0, binding = 3, std430) readonly buffer VertexAddressesBlock {
 	PointerToVertex data[];
@@ -42,6 +49,10 @@ layout(set = 0, binding = 5, std430) readonly buffer TransformBlock {
 } transforms;
 
 layout(set = 0, binding = 6) uniform texture2D blue_noise_texture;
+
+layout(set = 0, binding = 7, std430) readonly buffer NormalAddressesBlock {
+	PointerToNormal data[];
+} normal_addresses;
 
 const float c_pi = 3.14159265359;
 const float c_golden_ratio_conjugate = 0.61803398875; // also just fract(goldenRatio)
@@ -79,8 +90,8 @@ vec3 get_random_dir_on_hemisphere(vec3 normal, float e1, float e2) {
 	return s.x * u + s.y * v + s.z * w;
 }
 
-mat3x3 adjoint_transpose(mat4x3 m) {
-	mat3x3 ret;
+highp mat3x3 adjoint_transpose(highp mat4x3 m) {
+	highp mat3x3 ret;
 	ret[0][0] = m[2][2] * m[1][1] - m[1][2] * m[2][1];
 	ret[0][1] = m[1][2] * m[2][0] - m[1][0] * m[2][2];
 	ret[0][2] = m[1][0] * m[2][1] - m[2][0] * m[1][1];
@@ -94,6 +105,17 @@ mat3x3 adjoint_transpose(mat4x3 m) {
 	ret[2][2] = m[0][0] * m[1][1] - m[1][0] * m[0][1];
 
 	return ret;
+}
+
+vec3 oct_to_vec3(vec2 e) {
+	vec3 v = vec3(e.xy, 1.0 - abs(e.x) - abs(e.y));
+	float t = max(-v.z, 0.0);
+	v.xy += t * -sign(v.xy);
+	return normalize(v);
+}
+
+vec3 unpack_normal(u16vec4 p_normal_in) {
+	return oct_to_vec3((p_normal_in.xy / 65535.0) * 2.0 - 1.0);
 }
 
 void main() {
@@ -136,7 +158,7 @@ void main() {
 			idx2 = p_index.index[index_offset + 2];
 		}
 
-		mat4x3 transform = transpose(transforms.data[payload.instance_id]);
+		highp mat4x3 transform = transpose(transforms.data[payload.instance_id]);
 
 		vec4 pos0 = vec4(
 			p_vertex.vertex[vertex_offset + idx0 * 3 + 0],
@@ -155,8 +177,21 @@ void main() {
 		);
 		vec3 pos = transform * (pos0 * barycentrics.x + pos1 * barycentrics.y + pos2 * barycentrics.z);
 
-		mat3x3 normal_matrix = adjoint_transpose(transform);
-		vec3 normal = normalize(normal_matrix * normalize(cross(pos2.xyz - pos0.xyz, pos1.xyz - pos0.xyz)));
+#ifdef NORMAL_USED
+		PointerToNormal p_normal = normal_addresses.data[payload.instance_id];
+
+		vec3 normal0 = unpack_normal(p_normal.normal[vertex_offset + idx0]);
+		vec3 normal1 = unpack_normal(p_normal.normal[vertex_offset + idx1]);
+		vec3 normal2 = unpack_normal(p_normal.normal[vertex_offset + idx2]);
+
+		vec3 normal_interp = normalize(normal0 * barycentrics.x + normal1 * barycentrics.y + normal2 * barycentrics.z).xyz;
+
+#else // NORMAL_USED
+		vec3 normal_interp = normalize(cross(pos2.xyz - pos0.xyz, pos1.xyz - pos0.xyz));
+#endif // NORMAL_USED
+
+		highp mat3x3 normal_matrix = adjoint_transpose(transform);
+		vec3 normal = normalize(normal_matrix * normal_interp);
 
 		// shadow ray origin
 		float epsilon = 0.001;
