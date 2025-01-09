@@ -201,6 +201,8 @@ void main() {
 
 		const vec4 blue_noise_sample = get_blue_noise_sample();
 
+		const float shadow_t_max = 1.0;
+
 		for (uint shadow_sample_index = 0; shadow_sample_index < shadow_sample_count; shadow_sample_index++) {
 			const float blue_noise_rand1 = get_blue_noise_rand(blue_noise_sample.x, blue_noise_sample_count);
 			const float blue_noise_rand2 = get_blue_noise_rand(blue_noise_sample.y, blue_noise_sample_count);
@@ -208,7 +210,7 @@ void main() {
 			
 			vec3 shadow_direction = get_random_dir_on_hemisphere(normal, blue_noise_rand1, blue_noise_rand2);
 
-			traceRayEXT(tlas, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0, shadow_origin.xyz, t_min, shadow_direction.xyz, t_max, 0);
+			traceRayEXT(tlas, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0, shadow_origin.xyz, t_min, shadow_direction.xyz, shadow_t_max, 0);
 
 			if (!payload.hit) {
 				color += vec3(1.0);
@@ -218,7 +220,9 @@ void main() {
 		color /= float(shadow_sample_count);
 	}
 
-	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(color, 1.0));
+	const ivec2 uv = ivec2(gl_LaunchIDEXT.xy);
+	vec4 base_color = imageLoad(image, uv);
+	imageStore(image, uv, base_color * vec4(color, 1.0));
 }
 
 #[miss]
