@@ -118,19 +118,10 @@ func _initialize_scene():
 	index_buffer = rd.index_buffer_create(indices.size(), RenderingDevice.INDEX_BUFFER_FORMAT_UINT32, index_bytes)
 	index_array = rd.index_array_create(index_buffer, 0, indices.size())
 
-	# Transform buffer
-	var transform_matrix := PackedFloat32Array([
-		1.0, 0.0, 0.0, 0.0,
-		0.0, 1.0, 0.0, 0.0,
-		0.0, 0.0, 1.0, 0.0,
-	])
-	var transform_bytes := transform_matrix.to_byte_array()
-	transform_buffer = rd.storage_buffer_create(transform_bytes.size(), transform_bytes, RenderingDevice.STORAGE_BUFFER_USAGE_SHADER_DEVICE_ADDRESS | RenderingDevice.STORAGE_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY)
-
 	# Create a BLAS for a mesh
-	blas = rd.blas_create(vertex_array, index_array, transform_buffer)
+	blas = rd.blas_create(vertex_array, index_array)
 	# Create TLAS with BLASs.
-	tlas = rd.tlas_create([blas])
+	tlas = rd.tlas_create([blas], [Transform3D()])
 
 func _render():
 	rd.acceleration_structure_build(blas)
