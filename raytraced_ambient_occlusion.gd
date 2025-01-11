@@ -130,6 +130,7 @@ func _render_callback(_p_effect_callback_type: int, p_render_data: RenderData):
 	if transform_buffer == RID():
 		print("Skipping frame")
 		return
+	var transforms = render_scene_data.get_transforms(render_list_index)
 
 	var vertex_arrays = render_scene_data.get_vertex_arrays(render_list_index)
 	var index_arrays = render_scene_data.get_index_arrays(render_list_index)
@@ -144,12 +145,12 @@ func _render_callback(_p_effect_callback_type: int, p_render_data: RenderData):
 		index_addresses.push_back(_get_index_buffer_address(index_arrays[i]))
 
 		var transform_offset = i * transform_size
-		var blas = rd.blas_create(vertex_arrays[i], index_arrays[i], transform_buffer, transform_offset)
+		var blas = rd.blas_create(vertex_arrays[i], index_arrays[i])
 		if blas != RID():
 			rd.acceleration_structure_build(blas)
 			blases.push_back(blas)
 
-	tlas = rd.tlas_create(blases)
+	tlas = rd.tlas_create(blases, transforms)
 	assert(tlas != RID())
 	rd.acceleration_structure_build(tlas)
 
