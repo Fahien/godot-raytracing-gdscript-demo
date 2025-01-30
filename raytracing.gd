@@ -102,7 +102,7 @@ func _initialize_scene():
 			-0.5,  0.5, 1.0,
 		])
 	var point_bytes := points.to_byte_array()
-	vertex_buffer = rd.vertex_buffer_create(point_bytes.size(), point_bytes, false, true)
+	vertex_buffer = rd.vertex_buffer_create(point_bytes.size(), point_bytes, RenderingDevice.BUFFER_USAGE_DEVICE_ADDRESS | RenderingDevice.BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY)
 	var vertex_desc := RDVertexAttribute.new()
 	vertex_desc.format = RenderingDevice.DATA_FORMAT_R32G32B32_SFLOAT
 	vertex_desc.location = 0
@@ -113,7 +113,7 @@ func _initialize_scene():
 	# Index buffer
 	var indices := PackedInt32Array([0, 2, 1])
 	var index_bytes := indices.to_byte_array()
-	index_buffer = rd.index_buffer_create(indices.size(), RenderingDevice.INDEX_BUFFER_FORMAT_UINT32, index_bytes, false, true)
+	index_buffer = rd.index_buffer_create(indices.size(), RenderingDevice.INDEX_BUFFER_FORMAT_UINT32, index_bytes, false, RenderingDevice.BUFFER_USAGE_DEVICE_ADDRESS | RenderingDevice.BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY)
 	index_array = rd.index_array_create(index_buffer, 0, indices.size())
 
 	# Create a BLAS for a mesh
