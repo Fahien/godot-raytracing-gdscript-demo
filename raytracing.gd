@@ -13,6 +13,7 @@ var vertex_array: RID
 var index_buffer: RID
 var index_array: RID
 var blas: RID
+var instances_buffer: RID
 var tlas: RID
 var uniform_set: RID
 
@@ -22,6 +23,7 @@ func _cleanup():
 
 	rd.free_rid(uniform_set)
 	rd.free_rid(tlas)
+	rd.free_rid(instances_buffer)
 	rd.free_rid(blas)
 	rd.free_rid(index_array)
 	rd.free_rid(index_buffer)
@@ -117,9 +119,11 @@ func _initialize_scene():
 	index_array = rd.index_array_create(index_buffer, 0, indices.size())
 
 	# Create a BLAS for a mesh
-	blas = rd.blas_create(vertex_array, index_array)
+	blas = rd.blas_create(vertex_array, index_array, RenderingDevice.GEOMETRY_OPAQUE)
 	# Create TLAS with BLASs.
-	tlas = rd.tlas_create([blas], [Transform3D()])
+	instances_buffer = rd.tlas_instances_buffer_create(1)
+	rd.tlas_instances_buffer_fill(instances_buffer, [blas], [Transform3D()])
+	tlas = rd.tlas_create(instances_buffer)
 
 func _render():
 	rd.acceleration_structure_build(blas)
