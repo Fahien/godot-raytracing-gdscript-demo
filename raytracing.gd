@@ -14,6 +14,7 @@ var index_buffer: RID
 var index_array: RID
 var transform_buffer: RID
 var blas: RID
+var instances_bufer: RID
 var tlas: RID
 var uniform_set: RID
 
@@ -23,6 +24,7 @@ func _cleanup():
 
 	rd.free_rid(uniform_set)
 	rd.free_rid(tlas)
+	rd.free_rid(instances_buffer)
 	rd.free_rid(blas)
 	rd.free_rid(transform_buffer)
 	rd.free_rid(index_array)

@@ -28,6 +28,7 @@ var rd: RenderingDevice
 var shader := RID()
 var pipeline := RID()
 var blases := []
+var instances_buffer := RID()
 var tlas := RID()
 var vertex_storage := CustomStorageBuffer.new()
 var index_storage := CustomStorageBuffer.new()
@@ -67,6 +68,7 @@ func _notification(p_what: int):
 		_free_rid(rd, normal_storage.buffer)
 
 		_free_rid(rd, tlas)
+		_free_rid(rd, instances_buffer)
 
 		for blas in blases:
 			_free_rid(rd, blas)
@@ -78,6 +80,8 @@ func _notification(p_what: int):
 func _free_acceleration_structures():
 	_free_rid(rd, tlas)
 	tlas = RID()
+	_free_rid(rd, instances_buffer)
+	instances_buffer = RID()
 
 	for blas in blases:
 		_free_rid(rd, blas)
@@ -150,7 +154,9 @@ func _render_callback(_p_effect_callback_type: int, p_render_data: RenderData):
 			rd.acceleration_structure_build(blas)
 			blases.push_back(blas)
 
-	tlas = rd.tlas_create(blases, transforms)
+	instances_buffer = rd.tlas_instances_buffer_create(blases.size())
+	rd.tlas_instances_buffer_fill(instances_buffer, blases, transforms)
+	tlas = rd.tlas_create(instances_buffer)
 	assert(tlas != RID())
 	rd.acceleration_structure_build(tlas)
 
