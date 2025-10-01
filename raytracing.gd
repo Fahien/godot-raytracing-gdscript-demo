@@ -40,14 +40,14 @@ func _notification(what: int):
 		_cleanup()
 
 func _ready():
-	if rd.has_feature(RenderingDevice.SUPPORTS_RAYTRACING):
+	if rd.has_feature(RenderingDevice.SUPPORTS_RAYTRACING_PIPELINE):
 		_initialise_screen_texture()
 		_initialize_raytracing_texture()
 		_initialize_scene()
 		_initialize_raytracing_pipeline()
 
 func _process(_delta):
-	if rd.has_feature(RenderingDevice.SUPPORTS_RAYTRACING):
+	if rd.has_feature(RenderingDevice.SUPPORTS_RAYTRACING_PIPELINE):
 		_render()
 
 func _initialize_raytracing_texture():
@@ -119,7 +119,7 @@ func _initialize_scene():
 	index_array = rd.index_array_create(index_buffer, 0, indices.size())
 
 	# Create a BLAS for a mesh
-	blas = rd.blas_create(vertex_array, index_array, RenderingDevice.GEOMETRY_OPAQUE)
+	blas = rd.blas_create(vertex_array, index_array, RenderingDevice.ACCELERATION_STRUCTURE_GEOMETRY_OPAQUE)
 	# Create TLAS with BLASs.
 	instances_buffer = rd.tlas_instances_buffer_create(1)
 	rd.tlas_instances_buffer_fill(instances_buffer, [blas], [Transform3D()])
