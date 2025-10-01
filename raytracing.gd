@@ -119,7 +119,7 @@ func _initialize_scene():
 	index_array = rd.index_array_create(index_buffer, 0, indices.size())
 
 	# Create a BLAS for a mesh
-	blas = rd.blas_create(vertex_array, index_array, RenderingDevice.GEOMETRY_OPAQUE)
+	blas = rd.blas_create(vertex_array, index_array, RenderingDevice.ACCELERATION_STRUCTURE_GEOMETRY_OPAQUE)
 	# Create TLAS with BLASs.
 	instances_buffer = rd.tlas_instances_buffer_create(1)
 	rd.tlas_instances_buffer_fill(instances_buffer, [blas], [Transform3D()])
