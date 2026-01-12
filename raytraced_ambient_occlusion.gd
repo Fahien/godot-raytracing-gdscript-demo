@@ -63,6 +63,8 @@ func _render_callback(_p_effect_callback_type: int, p_render_data: RenderData):
 	if render_scene_data == null:
 		return
 
+	var uniform_buffer = render_scene_data.get_uniform_buffer()
+
 	_free_acceleration_structures()
 
 	var render_list_index = 0
@@ -99,7 +101,12 @@ func _render_callback(_p_effect_callback_type: int, p_render_data: RenderData):
 		as_uniform.binding = 1
 		as_uniform.add_id(tlas)
 
-		var uniform_set = rd.uniform_set_create([image_uniform, as_uniform], shader, 0)
+		var scene_uniform := RDUniform.new()
+		scene_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_UNIFORM_BUFFER
+		scene_uniform.binding = 2
+		scene_uniform.add_id(uniform_buffer)
+
+		var uniform_set = rd.uniform_set_create([image_uniform, as_uniform, scene_uniform], shader, 0)
 
 		var raylist = rd.raytracing_list_begin()
 		rd.raytracing_list_bind_raytracing_pipeline(raylist, pipeline)

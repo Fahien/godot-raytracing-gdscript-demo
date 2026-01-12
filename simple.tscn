@@ -11,12 +11,12 @@
 [sub_resource type="CompositorEffect" id="CompositorEffect_5rh3t"]
 resource_local_to_scene = false
 resource_name = ""
-enabled = true
+enabled = false
 effect_callback_type = 4
 needs_motion_vectors = false
 needs_normal_roughness = false
 script = ExtResource("1_qlnjk")
-metadata/_custom_type_script = ExtResource("1_qlnjk")
+metadata/_custom_type_script = "uid://bhe2v6xrltl3f"
 
 [sub_resource type="Compositor" id="Compositor_oet81"]
 compositor_effects = Array[CompositorEffect]([SubResource("CompositorEffect_5rh3t")])
