@@ -11,7 +11,7 @@
 [sub_resource type="CompositorEffect" id="CompositorEffect_5rh3t"]
 resource_local_to_scene = false
 resource_name = ""
-enabled = false
+enabled = true
 effect_callback_type = 4
 needs_motion_vectors = false
 needs_normal_roughness = false
@@ -29,13 +29,13 @@ transform = Transform3D(0.454167, -0.300606, 0.838671, 0.551937, 0.833886, 0, -0
 [node name="OmniLight3D" type="OmniLight3D" parent="Light" unique_id=486651446]
 
 [node name="Terrain" type="Node3D" parent="." unique_id=1860191615]
-transform = Transform3D(15.1283, 5.20909, 0, -2.83707, 8.23946, -13.4187, -4.36871, 12.6877, 8.71422, 0, 0, 0)
+transform = Transform3D(15.824253, -2.3649552, 0, 0.9994711, 6.6876316, -14.500901, 2.1433728, 14.341674, 6.7618804, 0, 0, 0)
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Terrain" unique_id=888386188]
 mesh = SubResource("PlaneMesh_qlnjk")
 
 [node name="Box" type="Node3D" parent="." unique_id=973445159]
-transform = Transform3D(0.743032, 0.0129697, 0.669131, -0.0174524, 0.999848, 0, -0.669029, -0.0116779, 0.743145, 0, 0, 3.55)
+transform = Transform3D(0.48248568, 0.10818707, -0.86919725, -0.17358877, 0.9844705, 0.02617696, 0.858531, 0.13825278, 0.49377283, 0.03, -0.72, 3.445)
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Box" unique_id=1767915267]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
