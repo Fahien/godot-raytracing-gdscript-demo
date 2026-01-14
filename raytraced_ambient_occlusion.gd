@@ -17,15 +17,31 @@ var transform_storage := RID()
 var transform_size_bytes := 0
 var uniform_set := RID()
 
+var blue_noise := RID()
+
 # Can not use @onready with CompositorEffect
 func _init():
+	_create_rendering_resources()
+	_load_blue_noise()
+
+func _create_rendering_resources():
 	rd = RenderingServer.get_rendering_device()
-	
 	# Create raytracing shaders.
 	var shader_file := load("res://raytraced_ambient_occlusion.glsl")
 	var shader_spirv: RDShaderSPIRV = shader_file.get_spirv()
 	shader = rd.shader_create_from_spirv(shader_spirv)
 	pipeline = rd.raytracing_pipeline_create(shader)
+
+func _load_blue_noise():
+	var blue_noise_image = Image.new()
+	blue_noise_image.load("res://assets/blue-noise.png")
+	var format = RDTextureFormat.new()
+	format.width = blue_noise_image.get_width()
+	format.height = blue_noise_image.get_height()
+	format.format = RenderingDevice.DATA_FORMAT_R8G8B8A8_UNORM;
+	format.usage_bits = RenderingDevice.TEXTURE_USAGE_SAMPLING_BIT;
+	blue_noise = rd.texture_create(format, RDTextureView.new(), [blue_noise_image.get_data()])
+	assert(blue_noise != RID())
 
 func _notification(p_what: int):
 	if p_what == NOTIFICATION_PREDELETE:
@@ -49,6 +65,8 @@ func _notification(p_what: int):
 			if blas.is_valid():
 				rd.free_rid(blas)
 
+		if blue_noise.is_valid():
+			rd.free_rid(blue_noise)
 		if pipeline.is_valid():
 			rd.free_rid(pipeline)
 		if shader.is_valid():
@@ -155,7 +173,6 @@ func _render_callback(_p_effect_callback_type: int, p_render_data: RenderData):
 	var render_list_index = 0
 
 	var uniform_buffer = render_scene_data.get_uniform_buffer()
-	var instance_count = render_scene_data.get_instance_count(render_list_index)
 
 	_free_acceleration_structures()
 
@@ -169,7 +186,6 @@ func _render_callback(_p_effect_callback_type: int, p_render_data: RenderData):
 	var vertex_count = vertex_arrays.size()
 	var index_count = index_arrays.size()
 	assert(vertex_count == index_count)
-	assert(instance_count == vertex_count)
 	for i in range(vertex_count):
 		assert(vertex_arrays[i].is_valid())
 		var vertex_address = _get_vertex_buffer_address(vertex_arrays[i], RenderingServer.ARRAY_VERTEX)
@@ -226,7 +242,24 @@ func _render_callback(_p_effect_callback_type: int, p_render_data: RenderData):
 		transforms_uniform.binding = 5
 		transforms_uniform.add_id(transform_storage)
 
-		uniform_set = rd.uniform_set_create([image_uniform, as_uniform, scene_uniform, vertex_addresses_uniform, index_addresses_uniform, transforms_uniform], shader, 0)
+		var blue_noise_uniform := RDUniform.new()
+		blue_noise_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_TEXTURE
+		blue_noise_uniform.binding = 6
+		blue_noise_uniform.add_id(blue_noise)
+
+		uniform_set = rd.uniform_set_create(
+			[
+				image_uniform,
+				as_uniform,
+				scene_uniform,
+				vertex_addresses_uniform,
+				index_addresses_uniform,
+				transforms_uniform,
+				blue_noise_uniform
+			],
+			shader,
+			0
+		)
 		assert(uniform_set.is_valid())
 
 		var raylist = rd.raytracing_list_begin()
