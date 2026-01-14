@@ -22,12 +22,12 @@ layout(set = 0, binding = 2, std140) uniform SceneDataBlock {
 	SceneData data;
 } scene_data_block;
 
-mat4 inverse_view_matrix() {
+mat4 to_mat4(mat3x4 in_mat) {
 	return transpose(
 		mat4(
-			scene_data_block.data.inv_view_matrix[0],
-			scene_data_block.data.inv_view_matrix[1],
-			scene_data_block.data.inv_view_matrix[2],
+			in_mat[0],
+			in_mat[1],
+			in_mat[2],
 			vec4(0.0, 0.0, 0.0, 1.0)
 		)
 	);
@@ -40,7 +40,7 @@ void main() {
 
 	vec4 target = scene_data_block.data.inv_projection_matrix * vec4(d.x, d.y, 1.0, 1.0);
 	
-	mat4 inv_view_matrix = inverse_view_matrix();
+	mat4 inv_view_matrix = to_mat4(scene_data_block.data.inv_view_matrix);
 	vec4 origin = inv_view_matrix * vec4(0.0, 0.0, 0.0, 1.0);
 	vec3 direction = mat3(inv_view_matrix) * normalize(target.xyz);
 
@@ -88,7 +88,27 @@ layout(set = 0, binding = 4, std430) readonly buffer IndexAddressesBlock {
 	PointerToIndex data[];
 } index_addresses;
 
+struct TransformData {
+	mat3x4 transform;
+};
+
+layout(set = 0, binding = 5, std430) readonly buffer TransformBlock {
+	TransformData data[];
+}
+instances;
+
 layout(location = 0) rayPayloadInEXT vec3 payload;
+
+mat4 to_mat4(mat3x4 in_mat) {
+	return transpose(
+		mat4(
+			in_mat[0],
+			in_mat[1],
+			in_mat[2],
+			vec4(0.0, 0.0, 0.0, 1.0)
+		)
+	);
+}
 
 void main() {
 	vec3 barycentrics = vec3(1.0 - attribs.x - attribs.y, attribs.x, attribs.y);
@@ -112,22 +132,28 @@ void main() {
 		idx2 = p_index.index[index_offset + 2];
 	}
 
-	vec3 pos0 = vec3(
-		p_vertex.vertex[vertex_offset + idx0 * 3 + 0],
-		p_vertex.vertex[vertex_offset + idx0 * 3 + 1],
-		p_vertex.vertex[vertex_offset + idx0 * 3 + 2]
+	highp mat4 transform = to_mat4(instances.data[gl_InstanceID].transform);
+
+	uint vertex_stride = 3;
+	vec4 pos0 = transform * vec4(
+		p_vertex.vertex[vertex_offset + idx0 * vertex_stride + 0],
+		p_vertex.vertex[vertex_offset + idx0 * vertex_stride + 1],
+		p_vertex.vertex[vertex_offset + idx0 * vertex_stride + 2],
+		1.0
 	);
-	vec3 pos1 = vec3(
-		p_vertex.vertex[vertex_offset + idx1 * 3 + 0],
-		p_vertex.vertex[vertex_offset + idx1 * 3 + 1],
-		p_vertex.vertex[vertex_offset + idx1 * 3 + 2]
+	vec4 pos1 = transform * vec4(
+		p_vertex.vertex[vertex_offset + idx1 * vertex_stride + 0],
+		p_vertex.vertex[vertex_offset + idx1 * vertex_stride + 1],
+		p_vertex.vertex[vertex_offset + idx1 * vertex_stride + 2],
+		1.0
 	);
-	vec3 pos2 = vec3(
-		p_vertex.vertex[vertex_offset + idx2 * 3 + 0],
-		p_vertex.vertex[vertex_offset + idx2 * 3 + 1],
-		p_vertex.vertex[vertex_offset + idx2 * 3 + 2]
+	vec4 pos2 = transform * vec4(
+		p_vertex.vertex[vertex_offset + idx2 * vertex_stride + 0],
+		p_vertex.vertex[vertex_offset + idx2 * vertex_stride + 1],
+		p_vertex.vertex[vertex_offset + idx2 * vertex_stride + 2],
+		1.0
 	);
-	vec3 pos = pos0 * barycentrics.x + pos1 * barycentrics.y + pos2 * barycentrics.z;
-	vec3 normal = normalize(cross(pos2 - pos0, pos1 - pos0));
+	vec4 pos = pos0 * barycentrics.x + pos1 * barycentrics.y + pos2 * barycentrics.z;
+	vec3 normal = normalize(cross(pos2.xyz - pos0.xyz, pos1.xyz - pos0.xyz));
 	payload = (normal + 1.0) / 2.0;
 }
