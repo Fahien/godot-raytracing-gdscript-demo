@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://d3qu3u7vqm54p"]
 
 [ext_resource type="Script" uid="uid://bhe2v6xrltl3f" path="res://raytraced_ambient_occlusion.gd" id="1_qlnjk"]
+[ext_resource type="PackedScene" uid="uid://jyugeb1nxslc" path="res://assets/sponza/sponza.gltf" id="2_oet81"]
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_qlnjk"]
 
@@ -24,18 +25,19 @@ compositor_effects = Array[CompositorEffect]([SubResource("CompositorEffect_5rh3
 [node name="Scene" type="Node3D" unique_id=2013527200]
 
 [node name="Light" type="Node3D" parent="." unique_id=1106644273]
-transform = Transform3D(0.454167, -0.300606, 0.838671, 0.551937, 0.833886, 0, -0.699355, 0.462893, 0.544639, -2.287, 1.11, 3.963)
+transform = Transform3D(0.454167, -0.300606, 0.838671, 0.551937, 0.833886, 0, -0.699355, 0.462893, 0.544639, -2.3209894, 2.247774, -0.8924258)
 
 [node name="OmniLight3D" type="OmniLight3D" parent="Light" unique_id=486651446]
 
 [node name="Terrain" type="Node3D" parent="." unique_id=1860191615]
-transform = Transform3D(0.36650556, 0.24104375, 0.89864975, 0.14822425, -0.9686493, 0.19936791, 0.9185331, 0.06013223, -0.390744, 0, 0, 0)
+transform = Transform3D(0.9999999, 0, 0, 0, 0.9999997, 0, 0, 0, 0.9999999, 0.075, -0.195, -0.3)
+visible = false
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Terrain" unique_id=888386188]
 mesh = SubResource("PlaneMesh_qlnjk")
 
 [node name="Box" type="Node3D" parent="." unique_id=973445159]
-transform = Transform3D(1.0000005, 0, 0, 0, 1.0000001, 0, 0, 0, 1.0000004, -0.1, 0.32, 0.145)
+transform = Transform3D(0.74314487, 0, -0.66913056, 0, 0.9999997, 0, 0.6691307, 0, 0.74314475, 0, 0.09, -0.49)
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Box" unique_id=1767915267]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
@@ -52,3 +54,5 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.525, 0.83, 2.415)
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1922154208]
 environment = SubResource("Environment_oet81")
 compositor = SubResource("Compositor_oet81")
+
+[node name="sponza" parent="." unique_id=1627788036 instance=ExtResource("2_oet81")]

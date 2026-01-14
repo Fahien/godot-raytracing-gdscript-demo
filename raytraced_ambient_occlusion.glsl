@@ -10,6 +10,8 @@
 #extension GL_EXT_shader_explicit_arithmetic_types_int64 : enable
 #extension GL_EXT_buffer_reference2 : require
 
+#define NORMAL_USED
+
 #define MAX_VIEWS 2
 #include "scene_data_inc.glsl"
 #include "ray_payload_inc.glsl"
@@ -26,8 +28,9 @@ layout(set = 0, binding = 2, std140) uniform SceneDataBlock {
 	SceneData data;
 } scene_data_block;
 
-layout(buffer_reference, buffer_reference_align = 4) buffer PointerToVertex { float vertex[]; };
+layout(buffer_reference, buffer_reference_align = 4) buffer PointerToVertex { highp float vertex[]; };
 layout(buffer_reference, buffer_reference_align = 2) buffer PointerToIndex { uint16_t index[]; };
+layout(buffer_reference, buffer_reference_align = 2) buffer PointerToNormal { u16vec4 normal[]; };
 
 layout(set = 0, binding = 3, std430) readonly buffer VertexAddressesBlock {
 	PointerToVertex data[];
@@ -43,13 +46,15 @@ layout(set = 0, binding = 5, std430) readonly buffer TransformsBlock {
 
 layout(set = 0, binding = 6) uniform texture2D blue_noise_texture;
 
+layout(set = 0, binding = 7, std430) readonly buffer NormalAddressesBlock {
+	PointerToNormal data[];
+} normal_addresses;
+
 const float c_pi = 3.14159265359;
 const float c_golden_ratio_conjugate = 0.61803398875; // also just fract(goldenRatio)
 
-vec4 get_blue_noise_sample(vec2 uv) {
-	const float width = 1024.99;
-	const float height = 1024.99;
-	ivec2 pix = ivec2(int(uv.x * width), int(uv.y * height));
+vec4 get_blue_noise_sample() {
+	ivec2 pix = ivec2(gl_LaunchIDEXT.x % 1024, gl_LaunchIDEXT.y % 1024);
 	return texelFetch(blue_noise_texture, pix, 0);
 }
 
@@ -81,21 +86,8 @@ vec3 get_random_dir_on_hemisphere(vec3 normal, float e1, float e2) {
 	return s.x * u + s.y * v + s.z * w;
 }
 
-mat3x3 adjoint_transpose(mat4x4 m) {
-	mat3x3 ret;
-	ret[0][0] = m[2][2] * m[1][1] - m[1][2] * m[2][1];
-	ret[0][1] = m[1][2] * m[2][0] - m[1][0] * m[2][2];
-	ret[0][2] = m[1][0] * m[2][1] - m[2][0] * m[1][1];
-
-	ret[1][0] = m[0][2] * m[2][1] - m[2][2] * m[0][1];
-	ret[1][1] = m[2][2] * m[0][0] - m[0][2] * m[2][0];
-	ret[1][2] = m[2][0] * m[0][1] - m[0][0] * m[2][1];
-
-	ret[2][0] = m[1][2] * m[0][1] - m[0][2] * m[1][1];
-	ret[2][1] = m[1][0] * m[0][2] - m[1][2] * m[0][0];
-	ret[2][2] = m[0][0] * m[1][1] - m[1][0] * m[0][1];
-
-	return ret;
+highp mat3 get_normal_matrix(highp mat4 m) {
+	return transpose(inverse(mat3(m)));
 }
 
 mat4 to_mat4(mat3x4 in_mat) {
@@ -107,6 +99,17 @@ mat4 to_mat4(mat3x4 in_mat) {
 			vec4(0.0, 0.0, 0.0, 1.0)
 		)
 	);
+}
+
+vec3 oct_to_vec3(vec2 e) {
+	vec3 v = vec3(e.xy, 1.0 - abs(e.x) - abs(e.y));
+	float t = max(-v.z, 0.0);
+	v.xy += t * -sign(v.xy);
+	return normalize(v);
+}
+
+vec3 unpack_normal(u16vec4 p_normal_in) {
+	return oct_to_vec3((p_normal_in.xy / 65535.0) * 2.0 - 1.0);
 }
 
 void main() {
@@ -151,8 +154,8 @@ void main() {
 			idx2 = p_index.index[index_offset + 2];
 		}
 
-		mat3x4 transposed_transform = transforms.data[payload.instance_id];
-		highp mat4 transform = to_mat4(transposed_transform);
+		mat4 transform = to_mat4(transforms.data[payload.instance_id]);
+		//highp mat4 transform = to_mat4(transposed_transform);
 
 		uint vertex_stride = 3;
 		vec4 pos0 = vec4(
@@ -173,26 +176,41 @@ void main() {
 			p_vertex.vertex[vertex_offset + idx2 * vertex_stride + 2],
 			1.0
 		);
-		vec4 pos = transform * (pos0 * barycentrics.x + pos1 * barycentrics.y + pos2 * barycentrics.z);
+		vec3 pos = (transform * (pos0 * barycentrics.x + pos1 * barycentrics.y + pos2 * barycentrics.z)).xyz;
 
-		mat3x3 normal_matrix = adjoint_transpose(transform);
-		vec3 normal = normalize(normal_matrix * cross(pos2.xyz - pos0.xyz, pos1.xyz - pos0.xyz));
+#ifdef NORMAL_USED
+		PointerToNormal p_normal = normal_addresses.data[payload.instance_id];
+
+		vec3 normal0 = unpack_normal(p_normal.normal[vertex_offset + idx0]);
+		vec3 normal1 = unpack_normal(p_normal.normal[vertex_offset + idx1]);
+		vec3 normal2 = unpack_normal(p_normal.normal[vertex_offset + idx2]);
+
+		vec3 normal_interp = normalize(normal0 * barycentrics.x + normal1 * barycentrics.y + normal2 * barycentrics.z).xyz;
+#else // NORMAL_USED
+		vec3 normal_interp = normalize(cross(pos2.xyz - pos0.xyz, pos1.xyz - pos0.xyz));
+#endif // NORMAL_USED
+
+		highp mat3x3 normal_matrix = get_normal_matrix(transform);
+		vec3 normal = normalize(normal_matrix * normal_interp);
 
 		// shadow ray origin
-		float epsilon = 0.001;
-		vec3 shadow_origin = pos.xyz + normal * epsilon;
+		float epsilon = 0.01;
+		vec3 shadow_origin = pos + normal * epsilon;
 
 		uint shadow_sample_count = 8;
 
+		const vec4 blue_noise_sample = get_blue_noise_sample();
+
+		const float shadow_t_max = 1.0;
+
 		for (uint shadow_sample_index = 0; shadow_sample_index < shadow_sample_count; shadow_sample_index++) {
-			const vec4 blue_noise_sample = get_blue_noise_sample(in_uv);
 			const float blue_noise_rand1 = get_blue_noise_rand(blue_noise_sample.x, blue_noise_sample_count);
 			const float blue_noise_rand2 = get_blue_noise_rand(blue_noise_sample.y, blue_noise_sample_count);
 			blue_noise_sample_count += 1;
 			
 			vec3 shadow_direction = get_random_dir_on_hemisphere(normal, blue_noise_rand1, blue_noise_rand2);
 
-			traceRayEXT(tlas, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0, shadow_origin.xyz, t_min, shadow_direction.xyz, t_max, 0);
+			traceRayEXT(tlas, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0, shadow_origin, t_min, shadow_direction.xyz, shadow_t_max, 0);
 
 			if (!payload.hit) {
 				color += vec3(1.0);

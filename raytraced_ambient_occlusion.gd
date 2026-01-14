@@ -32,6 +32,7 @@ var tlas: RID
 var vertex_storage := CustomStorageBuffer.new()
 var index_storage := CustomStorageBuffer.new()
 var transform_storage := CustomStorageBuffer.new()
+var normal_storage := CustomStorageBuffer.new()
 var uniform_set := RID()
 
 var blue_noise := RID()
@@ -64,6 +65,7 @@ func _load_blue_noise():
 func _notification(p_what: int):
 	if p_what == NOTIFICATION_PREDELETE:
 		_free_rid(rd, uniform_set)
+		_free_rid(rd, normal_storage.buffer)
 		_free_rid(rd, transform_storage.buffer)
 		_free_rid(rd, vertex_storage.buffer)
 		_free_rid(rd, index_storage.buffer)
@@ -111,9 +113,9 @@ func transform3d_to_mat3x4_bytes(transform: Transform3D) -> PackedByteArray:
 	var bz = transform.basis.z
 	var o = transform.origin
 	var f := PackedFloat32Array([
-		bx.x, bx.y, bx.z, o.x,
-		by.x, by.y, by.z, o.y,
-		bz.x, bz.y, bz.z, o.z,
+		bx.x, by.x, bz.x, o.x,
+		bx.y, by.y, bz.y, o.y,
+		bx.z, by.z, bz.z, o.z,
 	])
 	return f.to_byte_array()
 
@@ -144,6 +146,7 @@ func _render_callback(_p_effect_callback_type: int, p_render_data: RenderData):
 	_free_acceleration_structures()
 
 	var vertex_addresses = PackedInt64Array()
+	var normal_addresses = PackedInt64Array()
 	var index_addresses = PackedInt64Array()
 
 	var transforms = render_scene_data.get_transforms(render_list_index)
@@ -159,6 +162,8 @@ func _render_callback(_p_effect_callback_type: int, p_render_data: RenderData):
 		vertex_addresses.push_back(vertex_address)
 		var index_address = _get_index_buffer_address(index_arrays[i])
 		index_addresses.push_back(index_address)
+		var normal_address = _get_vertex_buffer_address(vertex_arrays[i], RenderingServer.ARRAY_NORMAL)
+		normal_addresses.push_back(normal_address)
 
 		var blas = rd.blas_create(vertex_arrays[i], index_arrays[i])
 		if (blas != RID()):
@@ -173,6 +178,7 @@ func _render_callback(_p_effect_callback_type: int, p_render_data: RenderData):
 
 	vertex_storage.update(rd, vertex_addresses.to_byte_array())
 	index_storage.update(rd, index_addresses.to_byte_array())
+	normal_storage.update(rd, normal_addresses.to_byte_array())
 	transform_storage.update(rd, transforms_to_mat3x4_bytes(transforms))
 
 	var view_count = render_scene_buffers.get_view_count()
@@ -214,6 +220,11 @@ func _render_callback(_p_effect_callback_type: int, p_render_data: RenderData):
 		blue_noise_uniform.binding = 6
 		blue_noise_uniform.add_id(blue_noise)
 
+		var normal_addresses_uniform := RDUniform.new()
+		normal_addresses_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
+		normal_addresses_uniform.binding = 7
+		normal_addresses_uniform.add_id(normal_storage.buffer)
+
 		uniform_set = rd.uniform_set_create(
 			[
 				image_uniform,
@@ -222,7 +233,8 @@ func _render_callback(_p_effect_callback_type: int, p_render_data: RenderData):
 				vertex_addresses_uniform,
 				index_addresses_uniform,
 				transforms_uniform,
-				blue_noise_uniform
+				blue_noise_uniform,
+				normal_addresses_uniform,
 			],
 			shader,
 			0
