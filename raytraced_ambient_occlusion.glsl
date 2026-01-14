@@ -81,7 +81,7 @@ vec3 get_random_dir_on_hemisphere(vec3 normal, float e1, float e2) {
 	return s.x * u + s.y * v + s.z * w;
 }
 
-mat3x3 adjoint_transpose(mat4x3 m) {
+mat3x3 adjoint_transpose(mat4x4 m) {
 	mat3x3 ret;
 	ret[0][0] = m[2][2] * m[1][1] - m[1][2] * m[2][1];
 	ret[0][1] = m[1][2] * m[2][0] - m[1][0] * m[2][2];
@@ -151,29 +151,32 @@ void main() {
 			idx2 = p_index.index[index_offset + 2];
 		}
 
-		highp mat4 transform = to_mat4(transforms.data[payload.instance_id]);
+		mat3x4 transposed_transform = transforms.data[payload.instance_id];
+		highp mat4 transform = to_mat4(transposed_transform);
 
 		uint vertex_stride = 3;
-		vec4 pos0 = transform * vec4(
+		vec4 pos0 = vec4(
 			p_vertex.vertex[vertex_offset + idx0 * vertex_stride + 0],
 			p_vertex.vertex[vertex_offset + idx0 * vertex_stride + 1],
 			p_vertex.vertex[vertex_offset + idx0 * vertex_stride + 2],
 			1.0
 		);
-		vec4 pos1 = transform * vec4(
+		vec4 pos1 = vec4(
 			p_vertex.vertex[vertex_offset + idx1 * vertex_stride + 0],
 			p_vertex.vertex[vertex_offset + idx1 * vertex_stride + 1],
 			p_vertex.vertex[vertex_offset + idx1 * vertex_stride + 2],
 			1.0
 		);
-		vec4 pos2 = transform * vec4(
+		vec4 pos2 = vec4(
 			p_vertex.vertex[vertex_offset + idx2 * vertex_stride + 0],
 			p_vertex.vertex[vertex_offset + idx2 * vertex_stride + 1],
 			p_vertex.vertex[vertex_offset + idx2 * vertex_stride + 2],
 			1.0
 		);
-		vec4 pos = pos0 * barycentrics.x + pos1 * barycentrics.y + pos2 * barycentrics.z;
-		vec3 normal = normalize(cross(pos2.xyz - pos0.xyz, pos1.xyz - pos0.xyz));
+		vec4 pos = transform * (pos0 * barycentrics.x + pos1 * barycentrics.y + pos2 * barycentrics.z);
+
+		mat3x3 normal_matrix = adjoint_transpose(transform);
+		vec3 normal = normalize(normal_matrix * cross(pos2.xyz - pos0.xyz, pos1.xyz - pos0.xyz));
 
 		// shadow ray origin
 		float epsilon = 0.001;

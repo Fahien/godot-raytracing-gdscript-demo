@@ -2,6 +2,26 @@
 extends CompositorEffect
 class_name RaytracedAmbientOcclusion
 
+static func _free_rid(dev: RenderingDevice, rid: RID):
+	if rid.is_valid():
+		dev.free_rid(rid)
+
+class CustomStorageBuffer:
+	var buffer := RID()
+	var size_bytes := 0
+
+	func update(rd: RenderingDevice, bytes: PackedByteArray):
+		assert(bytes != null)
+		assert(bytes.size() != 0)
+		var current_size_bytes = bytes.size()
+		if current_size_bytes > size_bytes:
+			size_bytes = current_size_bytes
+			RaytracedAmbientOcclusion._free_rid(rd, buffer)
+			buffer = rd.storage_buffer_create(current_size_bytes, bytes)
+			assert(buffer != RID())
+		else:
+			rd.buffer_update(buffer, 0, current_size_bytes, bytes)
+
 var rd: RenderingDevice
 var shader: RID
 var pipeline: RID
@@ -9,15 +29,13 @@ var blases := []
 var instances_buffer: RID
 var tlas: RID
 
-var vertex_storage := RID()
-var vertex_size_bytes := 0
-var index_storage := RID()
-var index_size_bytes := 0
-var transform_storage := RID()
-var transform_size_bytes := 0
+var vertex_storage := CustomStorageBuffer.new()
+var index_storage := CustomStorageBuffer.new()
+var transform_storage := CustomStorageBuffer.new()
 var uniform_set := RID()
 
 var blue_noise := RID()
+
 
 # Can not use @onready with CompositorEffect
 func _init():
@@ -45,44 +63,29 @@ func _load_blue_noise():
 
 func _notification(p_what: int):
 	if p_what == NOTIFICATION_PREDELETE:
-		if uniform_set.is_valid():
-			rd.free_rid(uniform_set)
-		if transform_storage.is_valid():
-			rd.free_rid(transform_storage)
-		if vertex_storage.is_valid():
-			rd.free_rid(vertex_storage)
-		if index_storage.is_valid():
-			rd.free_rid(index_storage)
+		_free_rid(rd, uniform_set)
+		_free_rid(rd, transform_storage.buffer)
+		_free_rid(rd, vertex_storage.buffer)
+		_free_rid(rd, index_storage.buffer)
+		_free_rid(rd, tlas)
 
-		if tlas.is_valid():
-			rd.free_rid(tlas)
-
-		if instances_buffer.is_valid():
-			rd.free_rid(instances_buffer)
-			instances_buffer = RID()
+		_free_rid(rd, instances_buffer)
 
 		for blas in blases:
-			if blas.is_valid():
-				rd.free_rid(blas)
+			_free_rid(rd, blas)
 
-		if blue_noise.is_valid():
-			rd.free_rid(blue_noise)
-		if pipeline.is_valid():
-			rd.free_rid(pipeline)
-		if shader.is_valid():
-			rd.free_rid(shader)
+		_free_rid(rd, blue_noise)
+		_free_rid(rd, pipeline)
+		_free_rid(rd, shader)
 
 func _free_acceleration_structures():
-	if tlas.is_valid():
-		rd.free_rid(tlas)
-		tlas = RID()
-	if instances_buffer.is_valid():
-		rd.free_rid(instances_buffer)
-		instances_buffer = RID()
+	_free_rid(rd, tlas)
+	tlas = RID()
+	_free_rid(rd, instances_buffer)
+	instances_buffer = RID()
 
 	for blas in blases:
-		if blas.is_valid():
-			rd.free_rid(blas)
+		_free_rid(rd, blas)
 	blases.clear()
 
 func _get_vertex_buffer_address(vertex_array: RID, buffer_index: RenderingServer.ArrayType):
@@ -102,34 +105,6 @@ func _get_index_buffer_address(index_array: RID):
 	var address = rd.buffer_get_device_address(buffer)
 	return address + buffer_offset
 
-func _update_vertex_storage(addresses: PackedInt64Array):
-	assert(addresses != null)
-	assert(addresses.size() != 0)
-	var addresses_bytes = addresses.to_byte_array()
-	var size_bytes = addresses_bytes.size()
-	if size_bytes > vertex_size_bytes:
-		vertex_size_bytes = size_bytes
-		if vertex_storage.is_valid():
-			rd.free_rid(vertex_storage)
-		vertex_storage = rd.storage_buffer_create(size_bytes, addresses_bytes)
-		assert(vertex_storage.is_valid())
-	else:
-		rd.buffer_update(vertex_storage, 0, size_bytes, addresses_bytes)
-
-func _update_index_storage(addresses: PackedInt64Array):
-	assert(addresses != null)
-	assert(addresses.size() != 0)
-	var addresses_bytes = addresses.to_byte_array()
-	var size_bytes = addresses_bytes.size()
-	if size_bytes > index_size_bytes:
-		index_size_bytes = size_bytes
-		if index_storage.is_valid():
-			rd.free_rid(index_storage)
-		index_storage = rd.storage_buffer_create(size_bytes, addresses_bytes)
-		assert(index_storage.is_valid())
-	else:
-		rd.buffer_update(index_storage, 0, size_bytes, addresses_bytes)
-
 func transform3d_to_mat3x4_bytes(transform: Transform3D) -> PackedByteArray:
 	var bx = transform.basis.x
 	var by = transform.basis.y
@@ -142,20 +117,12 @@ func transform3d_to_mat3x4_bytes(transform: Transform3D) -> PackedByteArray:
 	])
 	return f.to_byte_array()
 
-func _update_transform_storage(transforms):
+func transforms_to_mat3x4_bytes(transforms: Array) -> PackedByteArray:
 	var transforms_bytes := PackedByteArray()
 	for transform in transforms:
 		var t_bytes = transform3d_to_mat3x4_bytes(transform)
 		transforms_bytes.append_array(t_bytes)
-	var size_bytes = transforms_bytes.size()
-	if size_bytes > transform_size_bytes:
-		transform_size_bytes = size_bytes
-		if transform_storage.is_valid():
-			rd.free_rid(transform_storage)
-		transform_storage = rd.storage_buffer_create(size_bytes, transforms_bytes)
-		assert(transform_storage.is_valid())
-	else:
-		rd.buffer_update(transform_storage, 0, size_bytes, transforms_bytes)
+	return transforms_bytes
 
 func _render_callback(_p_effect_callback_type: int, p_render_data: RenderData):
 	if rd == null or pipeline == RID():
@@ -204,9 +171,9 @@ func _render_callback(_p_effect_callback_type: int, p_render_data: RenderData):
 	assert(tlas != RID())
 	rd.acceleration_structure_build(tlas)
 
-	_update_vertex_storage(vertex_addresses)
-	_update_index_storage(index_addresses)
-	_update_transform_storage(transforms)
+	vertex_storage.update(rd, vertex_addresses.to_byte_array())
+	index_storage.update(rd, index_addresses.to_byte_array())
+	transform_storage.update(rd, transforms_to_mat3x4_bytes(transforms))
 
 	var view_count = render_scene_buffers.get_view_count()
 	for view in range(view_count):
@@ -230,17 +197,17 @@ func _render_callback(_p_effect_callback_type: int, p_render_data: RenderData):
 		var vertex_addresses_uniform := RDUniform.new()
 		vertex_addresses_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
 		vertex_addresses_uniform.binding = 3
-		vertex_addresses_uniform.add_id(vertex_storage)
+		vertex_addresses_uniform.add_id(vertex_storage.buffer)
 
 		var index_addresses_uniform := RDUniform.new()
 		index_addresses_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
 		index_addresses_uniform.binding = 4
-		index_addresses_uniform.add_id(index_storage)
+		index_addresses_uniform.add_id(index_storage.buffer)
 
 		var transforms_uniform := RDUniform.new()
 		transforms_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
 		transforms_uniform.binding = 5
-		transforms_uniform.add_id(transform_storage)
+		transforms_uniform.add_id(transform_storage.buffer)
 
 		var blue_noise_uniform := RDUniform.new()
 		blue_noise_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_TEXTURE
