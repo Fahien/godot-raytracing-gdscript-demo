@@ -1,5 +1,6 @@
 [gd_scene format=3 uid="uid://d3qu3u7vqm54p"]
 
+[ext_resource type="Script" uid="uid://bvao54ky27u72" path="res://camera.gd" id="1_5rh3t"]
 [ext_resource type="Script" uid="uid://bhe2v6xrltl3f" path="res://raytraced_ambient_occlusion.gd" id="1_qlnjk"]
 [ext_resource type="PackedScene" uid="uid://jyugeb1nxslc" path="res://assets/sponza/sponza.gltf" id="2_oet81"]
 
@@ -28,6 +29,12 @@ compositor_effects = Array[CompositorEffect]([SubResource("CompositorEffect_5rh3
 transform = Transform3D(0.454167, -0.300606, 0.838671, 0.551937, 0.833886, 0, -0.699355, 0.462893, 0.544639, -2.3209894, 2.247774, -0.8924258)
 
 [node name="OmniLight3D" type="OmniLight3D" parent="Light" unique_id=486651446]
+transform = Transform3D(1.0000002, -6.854534e-07, -7.1525574e-07, 0, 1.0000002, -5.9604645e-08, 0, 0, 0.9999997, -0.1354872, 0.08967686, -0.2501924)
+light_energy = 2.0
+
+[node name="OmniLight3D" type="OmniLight3D" parent="Light/OmniLight3D" unique_id=1519460136]
+transform = Transform3D(1.0000002, 0, -1.7881393e-07, -5.9604645e-08, 1.0000001, 2.0861626e-07, 1.4901161e-07, -1.7881393e-07, 1.0000001, 4.301342, -2.8469937, 7.8162975)
+light_energy = 2.0
 
 [node name="Terrain" type="Node3D" parent="." unique_id=1860191615]
 transform = Transform3D(0.9999999, 0, 0, 0, 0.9999997, 0, 0, 0, 0.9999999, 0.075, -0.195, -0.3)
@@ -50,8 +57,9 @@ offset_right = 40.0
 offset_bottom = 40.0
 
 [node name="Camera3D" type="Camera3D" parent="." unique_id=2016529734]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.525, 0.83, 2.415)
-visible = false
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.525, 1.871392, 1.3296394)
+script = ExtResource("1_5rh3t")
+auto_camera_target_position = Vector3(0, 1.025, 0)
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1922154208]
 environment = SubResource("Environment_oet81")
