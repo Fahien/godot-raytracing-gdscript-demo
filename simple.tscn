@@ -37,7 +37,7 @@ visible = false
 mesh = SubResource("PlaneMesh_qlnjk")
 
 [node name="Box" type="Node3D" parent="." unique_id=973445159]
-transform = Transform3D(0.74314487, 0, -0.66913056, 0, 0.9999997, 0, 0.6691307, 0, 0.74314475, 0, 0.09, -0.49)
+transform = Transform3D(0.74314487, 0, -0.66913056, 0, 0.9999997, 0, 0.6691307, 0, 0.74314475, 0, 0.345, -0.335)
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Box" unique_id=1767915267]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
@@ -45,11 +45,13 @@ mesh = SubResource("BoxMesh_oet81")
 skeleton = NodePath("../..")
 
 [node name="TextureRect" type="TextureRect" parent="." unique_id=1513431805]
+visible = false
 offset_right = 40.0
 offset_bottom = 40.0
 
 [node name="Camera3D" type="Camera3D" parent="." unique_id=2016529734]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.525, 0.83, 2.415)
+visible = false
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1922154208]
 environment = SubResource("Environment_oet81")

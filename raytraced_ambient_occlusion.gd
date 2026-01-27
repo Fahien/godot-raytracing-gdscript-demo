@@ -150,6 +150,9 @@ func _render_callback(_p_effect_callback_type: int, p_render_data: RenderData):
 	var index_addresses = PackedInt64Array()
 
 	var transforms = render_scene_data.get_transforms(render_list_index)
+	if transforms.is_empty():
+		print("Skipping frame")
+		return
 	
 	var vertex_arrays = render_scene_data.get_vertex_arrays(render_list_index)
 	var index_arrays = render_scene_data.get_index_arrays(render_list_index)
@@ -169,6 +172,12 @@ func _render_callback(_p_effect_callback_type: int, p_render_data: RenderData):
 		if (blas != RID()):
 			rd.acceleration_structure_build(blas)
 			blases.push_back(blas)
+
+	assert(transforms.size() == blases.size())
+
+	if blases.is_empty():
+		print("Skipping frame")
+		return
 
 	instances_buffer = rd.tlas_instances_buffer_create(blases.size())
 	rd.tlas_instances_buffer_fill(instances_buffer, blases, transforms)

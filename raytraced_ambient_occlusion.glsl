@@ -220,7 +220,9 @@ void main() {
 		color /= float(shadow_sample_count);
 	}
 
-	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(color, 1.0));
+	const ivec2 uv = ivec2(gl_LaunchIDEXT.xy);
+	vec4 base_color = imageLoad(image, uv);
+	imageStore(image, uv, base_color * vec4(color, 1.0));
 }
 
 #[miss]
