@@ -17,22 +17,25 @@ var instances_buffer: RID
 var tlas: RID
 var uniform_set: RID
 
+func _free_rid(rd: RenderingDevice, rid: RID):
+	if rid != null:
+		rd.free_rid(rid)
+
 func _cleanup():
 	if rd == null:
 		return
 
-	rd.free_rid(uniform_set)
-	rd.free_rid(tlas)
-	rd.free_rid(instances_buffer)
-	rd.free_rid(blas)
-	rd.free_rid(index_array)
-	rd.free_rid(index_buffer)
-	rd.free_rid(vertex_array)
-	rd.free_rid(vertex_buffer)
-	rd.free_rid(raytracing_pipeline)
-	rd.free_rid(shader)
-	rd.free_rid(raytracing_texture)
-	rd.free()
+	_free_rid(rd, uniform_set)
+	_free_rid(rd, tlas)
+	_free_rid(rd, instances_buffer)
+	_free_rid(rd, blas)
+	_free_rid(rd, index_array)
+	_free_rid(rd, index_buffer)
+	_free_rid(rd, vertex_array)
+	_free_rid(rd, vertex_buffer)
+	_free_rid(rd, raytracing_pipeline)
+	_free_rid(rd, shader)
+	_free_rid(rd, raytracing_texture)
 	rd = null
 
 func _notification(what: int):
@@ -110,6 +113,7 @@ func _initialize_scene():
 	vertex_desc.location = 0
 	vertex_desc.stride = 4 * 3
 	var vertex_format := rd.vertex_format_create([vertex_desc])
+	@warning_ignore("integer_division")
 	vertex_array = rd.vertex_array_create(points.size() / 3, vertex_format, [vertex_buffer], [3*3*4])
 
 	# Index buffer
