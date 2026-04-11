@@ -7,6 +7,8 @@ var screen_texture := get_node("TextureRect")
 
 var raytracing_texture: RID
 var shader: RID
+var sbt: RID
+var sbt_range: int
 var raytracing_pipeline: RID
 var vertex_buffer: RID
 var vertex_array: RID
@@ -17,9 +19,9 @@ var instances_buffer: RID
 var tlas: RID
 var uniform_set: RID
 
-func _free_rid(rd: RenderingDevice, rid: RID):
+func _free_rid(p_rd: RenderingDevice, rid: RID):
 	if rid != null:
-		rd.free_rid(rid)
+		p_rd.free_rid(rid)
 
 func _cleanup():
 	if rd == null:
@@ -33,6 +35,8 @@ func _cleanup():
 	_free_rid(rd, index_buffer)
 	_free_rid(rd, vertex_array)
 	_free_rid(rd, vertex_buffer)
+	rd.hit_sbt_range_free(sbt, sbt_range)
+	_free_rid(rd, sbt)
 	_free_rid(rd, raytracing_pipeline)
 	_free_rid(rd, shader)
 	_free_rid(rd, raytracing_texture)
@@ -46,8 +50,9 @@ func _ready():
 	if rd.has_feature(RenderingDevice.SUPPORTS_RAYTRACING_PIPELINE):
 		_initialise_screen_texture()
 		_initialize_raytracing_texture()
-		_initialize_scene()
 		_initialize_raytracing_pipeline()
+		_initialize_scene()
+		_create_uniforms()
 
 func _process(_delta):
 	if rd.has_feature(RenderingDevice.SUPPORTS_RAYTRACING_PIPELINE):
@@ -81,8 +86,22 @@ func _initialize_raytracing_pipeline():
 	var shader_file := load("res://ray.glsl")
 	var shader_spirv: RDShaderSPIRV = shader_file.get_spirv()
 	shader = rd.shader_create_from_spirv(shader_spirv)
-	raytracing_pipeline = rd.raytracing_pipeline_create(shader)
+	
+	var pipeline_shader = RDPipelineShader.new()
+	pipeline_shader.shader = shader
+	
+	var hit_group = RDHitGroup.new()
+	hit_group.closest_hit_shader = pipeline_shader
+	
+	raytracing_pipeline = rd.raytracing_pipeline_create([pipeline_shader], [pipeline_shader], [hit_group], 1)
 
+	sbt = rd.hit_sbt_create(raytracing_pipeline, 1024)
+	sbt_range = rd.hit_sbt_range_alloc(sbt, 1)
+	assert(sbt_range != 0)
+	var err = rd.hit_sbt_range_update(sbt, sbt_range, 0, [0])
+	assert(err == OK)
+
+func _create_uniforms():
 	var image_uniform := RDUniform.new()
 	image_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_IMAGE
 	image_uniform.binding = 0
@@ -114,31 +133,43 @@ func _initialize_scene():
 	vertex_desc.stride = 4 * 3
 	var vertex_format := rd.vertex_format_create([vertex_desc])
 	@warning_ignore("integer_division")
-	vertex_array = rd.vertex_array_create(points.size() / 3, vertex_format, [vertex_buffer], [3*3*4])
+	var vertex_count := points.size() / 3
+	vertex_array = rd.vertex_array_create(vertex_count, vertex_format, [vertex_buffer])
 
 	# Index buffer
 	var indices := PackedInt32Array([0, 2, 1])
 	var index_bytes := indices.to_byte_array()
 	index_buffer = rd.index_buffer_create(indices.size(), RenderingDevice.INDEX_BUFFER_FORMAT_UINT32, index_bytes, false, RenderingDevice.BUFFER_CREATION_DEVICE_ADDRESS_BIT | RenderingDevice.BUFFER_CREATION_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT)
 	index_array = rd.index_array_create(index_buffer, 0, indices.size())
+	
+	var geometry = RDAccelerationStructureGeometry.new()
+	geometry.index_buffer = index_buffer
+	geometry.index_count = indices.size()
+	geometry.vertex_buffer = vertex_buffer
+	geometry.vertex_count = vertex_count
+	geometry.vertex_format = vertex_desc.format
+	geometry.vertex_stride = vertex_desc.stride
 
 	# Create a BLAS for a mesh
-	blas = rd.blas_create(vertex_array, index_array, RenderingDevice.ACCELERATION_STRUCTURE_GEOMETRY_OPAQUE)
+	blas = rd.blas_create([geometry], RenderingDevice.ACCELERATION_STRUCTURE_GEOMETRY_OPAQUE_BIT)
+
+	rd.blas_build(blas)
+
 	# Create TLAS with BLASs.
-	instances_buffer = rd.tlas_instances_buffer_create(1)
-	rd.tlas_instances_buffer_fill(instances_buffer, [blas], [Transform3D()])
-	tlas = rd.tlas_create(instances_buffer)
+	tlas = rd.tlas_create(1, RenderingDevice.ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT)
+
+	var instance = RDAccelerationStructureInstance.new()
+	instance.blas = blas
+	instance.hit_sbt_range = sbt_range
+	rd.tlas_build(tlas, [instance])
 
 func _render():
-	rd.acceleration_structure_build(blas)
-	rd.acceleration_structure_build(tlas)
-
 	var raylist = rd.raytracing_list_begin()
 	rd.raytracing_list_bind_raytracing_pipeline(raylist, raytracing_pipeline)
 	rd.raytracing_list_bind_uniform_set(raylist, uniform_set, 0)
 	var width = get_viewport().size.x
 	var height = get_viewport().size.y
-	rd.raytracing_list_trace_rays(raylist, width, height)
+	rd.raytracing_list_trace_rays(raylist, 0, sbt, width, height, 1)
 	rd.raytracing_list_end()
 	
 	var byte_data := rd.texture_get_data(raytracing_texture, 0)
